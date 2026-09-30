@@ -2,7 +2,7 @@ FROM node:24-bookworm
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN corepack enable \
     && corepack prepare pnpm@12.6.0 --activate \
     && pnpm install --prod
