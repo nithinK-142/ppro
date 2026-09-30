@@ -3,6 +3,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const env = require('./config/env');
 const requestId = require('./middleware/request-id');
+const httpLogger = require('./middleware/http-logger');
 const { apiLimiter } = require('./middleware/rate-limit');
 const errorHandler = require('./middleware/error-handler');
 const AppError = require('./errors/app-error');
@@ -16,6 +17,7 @@ app.disable('x-powered-by');
 if (env.TRUST_PROXY) app.set('trust proxy', 1);
 
 app.use(requestId);
+app.use(httpLogger);
 app.use(helmet());
 app.use(cors({ origin: env.CLIENT_ORIGIN === '*' ? true : env.CLIENT_ORIGIN }));
 app.use(express.json({ limit: '20kb' }));
