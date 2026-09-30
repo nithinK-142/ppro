@@ -1,0 +1,24 @@
+services:
+  api:
+    build: .
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_PATH: /app/data/padosipro.db
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_SECURE: "false"
+      CLIENT_ORIGIN: http://localhost:8081
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - mailpit
+
+  mailpit:
+    image: ghcr.io/axllent/mailpit:v1.31.3
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
