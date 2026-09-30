@@ -1,0 +1,11 @@
+meta {
+  name: Tasks - List
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/v1/tasks?search={{search}}&category={{category}}&page={{page}}&limit={{limit}}
+  body: none
+  auth: none
+}
