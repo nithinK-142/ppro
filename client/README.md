@@ -49,3 +49,7 @@ Network screens have loading, empty, and error/retry states. Submit actions lock
 ## Scope
 
 Account setup and task preferences only. No payments, chat, vendor marketplace, push notifications, or full request lifecycle.
+
+## Debugging
+
+API requests send an `X-Request-Id` and log method, path, status, duration, and error code. The server returns the same ID. Match that ID with the API logs when debugging. Set `EXPO_PUBLIC_LOG_LEVEL=debug` for request logs.
