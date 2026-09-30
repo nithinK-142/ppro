@@ -15,7 +15,6 @@ docker compose up --build
 ```
 
 API: `http://localhost:4000`
-Mailpit: `http://localhost:8025`
 
 For local Node development:
 
@@ -70,7 +69,7 @@ Tests cover OTP generation, hashing, expiry, resend timing, wrong-attempt limits
 
 ## Mail
 
-Development uses Mailpit. Production uses SMTP. Port 465 uses SMTPS. Port 587 requires STARTTLS.
+Email is sent through SMTP. Configure a real SMTP provider in `.env`.
 
 ## Data
 
