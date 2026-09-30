@@ -75,3 +75,7 @@ Development uses Mailpit. Production uses SMTP. Port 465 uses SMTPS. Port 587 re
 ## Data
 
 SQLite is used for the assignment. `src/db/seed.js` loads 30 local task records across six categories. No production PadosiPro API is called.
+
+## Logs
+
+API logs are structured JSON on stdout. Every request has an `X-Request-Id`; the client sends it and the API returns it. Match that ID across both logs when debugging a request. Set `LOG_LEVEL=debug` for more detail. Passwords, bearer tokens, and cookies are not logged.

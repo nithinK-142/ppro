@@ -19,7 +19,8 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional().default(''),
   MAIL_FROM: z.string().min(1).default('PadosiPro <no-reply@padosipro.local>'),
   CLIENT_ORIGIN: z.string().min(1).default('http://localhost:8081'),
-  TRUST_PROXY: z.string().optional().default('false')
+  TRUST_PROXY: z.string().optional().default('false'),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info')
 }).superRefine((value, ctx) => {
   if (value.NODE_ENV === 'production' && value.JWT_SECRET === 'replace-with-a-long-random-secret') {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['JWT_SECRET'], message: 'JWT_SECRET must be changed in production' });
@@ -32,8 +33,7 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error('Invalid environment configuration');
-  console.error(parsed.error.flatten().fieldErrors);
+  console.error(JSON.stringify({ level: 'error', event: 'config.invalid', errors: parsed.error.flatten().fieldErrors }));
   process.exit(1);
 }
 

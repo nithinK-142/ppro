@@ -36,6 +36,7 @@ async function register(req, res) {
   });
 
   const userId = create();
+  req.log.info({ event: 'auth.registered', userId }, 'user registered');
   await sendOtp(email, code);
 
   return res.status(201).json({
@@ -65,6 +66,7 @@ async function verifyEmail(req, res) {
     db.prepare('DELETE FROM email_otps WHERE user_id = ?').run(user.id);
   })();
 
+  req.log.info({ event: 'auth.email_verified', userId: user.id }, 'email verified');
   return res.json({ data: { verified: true } });
 }
 
@@ -84,6 +86,7 @@ async function resendVerification(req, res) {
     .run(user.id, hashOtp(code), expiresAt.toISOString(), sentAt.toISOString());
 
   await sendOtp(email, code);
+  req.log.info({ event: 'auth.otp_resent', userId: user.id }, 'verification code resent');
   return res.json({ data: { sent: true } });
 }
 

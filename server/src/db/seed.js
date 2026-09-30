@@ -44,4 +44,4 @@ const seed = db.transaction(() => {
 });
 
 seed();
-console.log(`Seeded ${tasks.length} catalogue tasks`);
+require('../logging/logger').info({ count: tasks.length }, 'catalogue seeded');

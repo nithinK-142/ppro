@@ -14,12 +14,18 @@ function errorHandler(err, req, res, _next) {
   }
 
   if (error.status >= 500) {
-    console.error(JSON.stringify({
-      requestId: req.requestId,
-      method: req.method,
-      path: req.originalUrl,
-      error: err?.message
-    }));
+    req.log.error({
+      err,
+      code: error.code,
+      status: error.status,
+      requestId: req.requestId
+    }, 'request failed');
+  } else if (error.status >= 400) {
+    req.log.warn({
+      code: error.code,
+      status: error.status,
+      requestId: req.requestId
+    }, 'request rejected');
   }
 
   const body = {
