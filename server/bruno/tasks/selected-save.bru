@@ -1,0 +1,26 @@
+meta {
+  name: Tasks - Save selected
+  type: http
+  seq: 11
+}
+
+put {
+  url: {{baseUrl}}/api/v1/tasks/selected
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "taskIds": [{{taskId1}}, {{taskId2}}, {{taskId3}}]
+  }
+}

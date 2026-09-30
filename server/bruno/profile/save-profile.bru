@@ -1,0 +1,29 @@
+meta {
+  name: Profile - Save
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/profile
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "{{name}}",
+    "mobile": "{{mobile}}",
+    "address": "{{address}}",
+    "businessName": "{{businessName}}"
+  }
+}
