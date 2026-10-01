@@ -12,12 +12,13 @@ const envSchema = z.object({
   OTP_EXPIRES_MINUTES: z.coerce.number().int().min(1).max(60).default(10),
   OTP_RESEND_SECONDS: z.coerce.number().int().min(10).max(300).default(30),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(5),
-  SMTP_HOST: z.string().min(1).default('127.0.0.1'),
-  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
-  SMTP_SECURE: z.string().optional().default('false'),
+  SMTP_HOST: z.string().min(1),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535),
+  SMTP_SECURE: z.string().default('false'),
+  SMTP_REQUIRE_TLS: z.string().default('false'),
   SMTP_USER: z.string().optional().default(''),
   SMTP_PASS: z.string().optional().default(''),
-  MAIL_FROM: z.string().min(1).default('PadosiPro <no-reply@padosipro.local>'),
+  MAIL_FROM: z.string().min(1),
   CLIENT_ORIGIN: z.string().min(1).default('http://localhost:8081'),
   TRUST_PROXY: z.string().optional().default('false'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info')
@@ -40,6 +41,7 @@ if (!parsed.success) {
 const env = {
   ...parsed.data,
   SMTP_SECURE: parsed.data.SMTP_SECURE === 'true',
+  SMTP_REQUIRE_TLS: parsed.data.SMTP_REQUIRE_TLS === 'true',
   TRUST_PROXY: parsed.data.TRUST_PROXY === 'true'
 };
 
