@@ -43,6 +43,15 @@ export default function Tasks() {
     .map((id) => tasks.find((task) => task.id === id) || selectedTasks.find((task) => task.id === id))
     .filter(Boolean), [tasks, selected, selectedTasks]);
 
+  const groupedTasks = useMemo(() => {
+    const groups = new Map();
+    for (const task of tasks) {
+      if (!groups.has(task.category)) groups.set(task.category, []);
+      groups.get(task.category).push(task);
+    }
+    return [...groups.entries()];
+  }, [tasks]);
+
   const toggle = (id) => {
     setSelected((current) => {
       const next = new Set(current);
@@ -130,27 +139,31 @@ export default function Tasks() {
       {!loading && !error && !tasks.length ? <StateCard title="No matching tasks" message="Try a different search or category." /> : null}
 
       <View style={styles.list}>
-        {!loading && !error && tasks.map((task) => {
-          const active = selected.has(task.id);
-          return (
-            <Pressable
-              key={task.id}
-              onPress={() => toggle(task.id)}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: active }}
-              accessibilityLabel={`${task.name}, ${task.category}`}
-              testID={`task-${task.id}`}
-              style={[styles.task, active && styles.taskActive]}
-            >
-              <View style={styles.taskHead}>
-                <Text style={styles.taskName}>{task.name}</Text>
-                <View style={[styles.check, active && styles.checkActive]}><Text style={styles.checkText}>{active ? '✓' : ''}</Text></View>
-              </View>
-              <Text style={styles.taskCategory}>{task.category}</Text>
-              <Text style={styles.taskDescription}>{task.description}</Text>
-            </Pressable>
-          );
-        })}
+        {!loading && !error && groupedTasks.map(([group, groupTasks]) => (
+          <View key={group} style={styles.group}>
+            <Text style={styles.groupTitle}>{group}</Text>
+            {groupTasks.map((task) => {
+              const active = selected.has(task.id);
+              return (
+                <Pressable
+                  key={task.id}
+                  onPress={() => toggle(task.id)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: active }}
+                  accessibilityLabel={`${task.name}, ${task.category}`}
+                  testID={`task-${task.id}`}
+                  style={[styles.task, active && styles.taskActive]}
+                >
+                  <View style={styles.taskHead}>
+                    <Text style={styles.taskName}>{task.name}</Text>
+                    <View style={[styles.check, active && styles.checkActive]}><Text style={styles.checkText}>{active ? '✓' : ''}</Text></View>
+                  </View>
+                  <Text style={styles.taskDescription}>{task.description}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
       </View>
 
       <View style={styles.footer}>
@@ -176,7 +189,9 @@ const styles = StyleSheet.create({
   chipTextActive: { color: colors.white },
   loading: { alignItems: 'center', paddingVertical: spacing.lg, gap: spacing.sm },
   muted: { color: colors.muted },
-  list: { gap: spacing.sm },
+  list: { gap: spacing.lg },
+  group: { gap: spacing.sm },
+  groupTitle: { color: colors.ink, fontSize: 18, lineHeight: 22, fontWeight: '900' },
   task: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.md, gap: 6 },
   taskActive: { borderColor: colors.accent, backgroundColor: '#FFF7F2' },
   taskHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
