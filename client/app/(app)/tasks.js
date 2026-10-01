@@ -26,7 +26,7 @@ export default function Tasks() {
     setError('');
     try {
       const result = await getTasks({ search, category: category === 'All' ? undefined : category });
-      setTasks(result.data || []);
+      setTasks(result || []);
     } catch (requestError) {
       setError(requestError.message);
     } finally {
