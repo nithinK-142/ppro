@@ -105,7 +105,13 @@ export default function Tasks() {
         accessibilityLabel="Search tasks"
       />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} accessibilityLabel="Task categories">
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoryScroll}
+        contentContainerStyle={styles.chips}
+        accessibilityLabel="Task categories"
+      >
         {categories.map((item) => (
           <Pressable
             key={item}
@@ -162,10 +168,11 @@ const styles = StyleSheet.create({
   title: { color: colors.ink, fontSize: 34, lineHeight: 40, fontWeight: '900' },
   copy: { color: colors.muted, fontSize: 16, lineHeight: 23 },
   search: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: 14, color: colors.ink, fontSize: 16 },
-  chips: { gap: 8, paddingVertical: 2 },
-  chip: { borderWidth: 1, borderColor: colors.line, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: colors.surface },
+  categoryScroll: { height: 44, flexGrow: 0 },
+  chips: { gap: 8, alignItems: 'center' },
+  chip: { height: 44, flexShrink: 0, borderWidth: 1, borderColor: colors.line, borderRadius: radius.pill, paddingHorizontal: 14, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   chipActive: { backgroundColor: colors.ink, borderColor: colors.ink },
-  chipText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
+  chipText: { color: colors.muted, fontSize: 13, fontWeight: '700', flexShrink: 0 },
   chipTextActive: { color: colors.white },
   loading: { alignItems: 'center', paddingVertical: spacing.lg, gap: spacing.sm },
   muted: { color: colors.muted },
