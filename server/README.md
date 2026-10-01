@@ -69,7 +69,10 @@ Tests cover OTP generation, hashing, expiry, resend timing, wrong-attempt limits
 
 ## Mail
 
-Email is sent through SMTP. Configure a real SMTP provider in `.env`.
+Email is sent through Mailjet SMTP.
+
+Set `SMTP_USER` to the Mailjet API key and `SMTP_PASS` to the Mailjet secret key.
+Use a sender address verified in Mailjet. Port `465` uses SMTPS; port `587` uses STARTTLS.
 
 ## Data
 
