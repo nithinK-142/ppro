@@ -180,7 +180,7 @@ export default function Home() {
         <Text style={styles.nextEyebrow}>READY WHEN YOU ARE</Text>
         <Text style={styles.nextTitle}>Need to change your list?</Text>
         <Text style={styles.nextText}>Add services or remove anything you no longer need handled.</Text>
-        <Button label="Change services" onPress={() => router.push('/(app)/tasks')} secondary />
+        <Button label="Change services" onPress={() => router.push('/(app)/tasks')} />
       </View>
 
       <Text style={styles.footer}>Signed in as {user?.email}</Text>

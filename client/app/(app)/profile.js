@@ -45,7 +45,7 @@ export default function Profile() {
         <Text style={styles.nextEyebrow}>YOUR SERVICES</Text>
         <Text style={styles.nextTitle}>Need to change what Padosi handles?</Text>
         <Text style={styles.nextCopy}>Add or remove services from your current selection.</Text>
-        <Button label="Change services" onPress={() => router.push('/(app)/tasks')} secondary testID="profile-change-services" />
+        <Button label="Change services" onPress={() => router.push('/(app)/tasks')} testID="profile-change-services" />
       </View>
     </Screen>
   );
