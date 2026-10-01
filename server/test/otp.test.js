@@ -1,4 +1,3 @@
-const { describe, expect, it } = require('vitest');
 const { generateOtp, hashOtp, otpExpired, resendAvailable } = require('../src/utils/otp');
 
 describe('OTP rules', () => {
