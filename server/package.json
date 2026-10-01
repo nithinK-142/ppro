@@ -9,7 +9,8 @@
     "start": "node src/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "node --check src/server.js && node --check src/app.js"
+    "check": "node --check src/server.js && node --check src/app.js",
+    "generate:code": "openssl rand -hex 16"
   },
   "engines": {
     "node": ">=24"
