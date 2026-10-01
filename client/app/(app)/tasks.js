@@ -141,7 +141,7 @@ export default function Tasks() {
       <View style={styles.list}>
         {!loading && !error && groupedTasks.map(([group, groupTasks]) => (
           <View key={group} style={styles.group}>
-            <Text style={styles.groupTitle}>{group}</Text>
+            {/* <Text style={styles.groupTitle}>{group}</Text> */}
             {groupTasks.map((task) => {
               const active = selected.has(task.id);
               return (
