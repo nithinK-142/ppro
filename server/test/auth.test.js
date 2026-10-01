@@ -1,6 +1,5 @@
 require('./setup');
 
-const { beforeEach, describe, expect, it } = require('vitest');
 const request = require('supertest');
 const app = require('../src/app');
 const { db } = require('../src/db');
