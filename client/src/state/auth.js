@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getMe } from '../api/profile';
+import { ApiError } from '../api/client';
 import { login as loginRequest } from '../api/auth';
 import { clearToken, getToken, setToken } from '../storage/token';
 
@@ -24,12 +25,17 @@ export function AuthProvider({ children }) {
       setProfile(data.profile);
       setSelectedTasks(data.selectedTasks);
       setStatus('signed_in');
-    } catch {
-      await clearToken();
-      setUser(null);
-      setProfile(null);
-      setSelectedTasks([]);
-      setStatus('signed_out');
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        await clearToken();
+        setUser(null);
+        setProfile(null);
+        setSelectedTasks([]);
+        setStatus('signed_out');
+        return;
+      }
+
+      setStatus('session_error');
     }
   }, []);
 
