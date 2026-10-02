@@ -1,14 +1,33 @@
-# PadosiPro API
+# PadosiPro Server
 
-Express API for the PadosiPro onboarding flow.
+Express API.
 
-## Stack
+## Setup
 
-Node.js 24 · Express 5 · SQLite · bcrypt · JWT · Zod · Nodemailer
+```sh
+pnpm install
+cp .env.example .env
+```
 
-## Run
+Set the required environment variables in `.env`.
 
-Copy `.env.example` to `.env`, set the two secrets, then:
+## Start
+
+Run the API normally:
+
+```sh
+pnpm start
+```
+
+For local development with watch mode:
+
+```sh
+pnpm dev
+```
+
+## Docker
+
+Run the API with Docker Compose:
 
 ```sh
 docker compose up --build
@@ -16,12 +35,24 @@ docker compose up --build
 
 API: `http://localhost:4000`
 
-For local Node development:
+## Code structure
 
-```sh
-pnpm install
-pnpm dev
+```text
+src/
+├── controllers/   Request handlers
+├── routes/        API routes
+├── middleware/    Auth, validation, rate limiting, request logging
+├── validation/    Zod request schemas
+├── db/            SQLite setup, schema, and seed data
+├── utils/         OTP and email helpers
+├── logging/       Pino logger
+├── config/        Environment configuration
+└── errors/        Application errors
 ```
+
+Requests flow through routes → middleware → controllers.
+
+Validation uses Zod. Authentication uses JWT and bcrypt.
 
 ## Flow
 
@@ -29,10 +60,12 @@ pnpm dev
 register → verify email → login → profile → choose tasks → home
 ```
 
+OTP verification is required before login.
+
 ## API
 
-OpenAPI: `docs/openapi.yaml`
-Bruno collection: `bruno/`
+- OpenAPI: `docs/openapi.yaml`
+- Bruno collection: `bruno/`
 
 Health:
 
@@ -57,7 +90,23 @@ Tasks:
 - `GET /api/v1/tasks/selected`
 - `PUT /api/v1/tasks/selected`
 
-Every response carries `X-Request-Id`. Auth endpoints use IP and email-aware rate limits. Task queries have bounded search and pagination values.
+## Security
+
+Authentication uses JWT.
+
+Passwords are hashed with bcrypt.
+
+Auth endpoints use IP- and email-aware rate limits.
+
+Request validation uses Zod.
+
+Authorization and cookies are redacted from logs.
+
+## Data
+
+SQLite stores application data.
+
+`src/db/seed.js` seeds 30 task records across six categories.
 
 ## Tests
 
@@ -71,13 +120,20 @@ Tests cover OTP generation, hashing, expiry, resend timing, wrong-attempt limits
 
 Email is sent through Mailjet SMTP.
 
-Set `SMTP_USER` to the Mailjet API key and `SMTP_PASS` to the Mailjet secret key.
-Use a sender address verified in Mailjet. Port `465` uses SMTPS; port `587` uses STARTTLS.
+Configure `SMTP_USER`, `SMTP_PASS`, `SMTP_HOST`, `SMTP_PORT`, and `MAIL_FROM` in `.env`.
 
-## Data
+## Debugging
 
-SQLite is used for the assignment. `src/db/seed.js` loads 30 local task records across six categories. No production PadosiPro API is called.
+Every request gets an `X-Request-Id`. The same ID is returned in the response and logged by the API.
 
-## Logs
+Match the ID across client and server logs when debugging a request.
 
-API logs are structured JSON on stdout. Every request has an `X-Request-Id`; the client sends it and the API returns it. Match that ID across both logs when debugging a request. Set `LOG_LEVEL=debug` for more detail. Passwords, bearer tokens, and cookies are not logged.
+`LOG_LEVEL` supports:
+
+- `silent` — disables logs.
+- `fatal` — fatal errors only.
+- `error` — errors and more severe logs.
+- `warn` — warnings, errors, and fatal errors.
+- `info` — normal application logs.
+- `debug` — detailed debugging logs.
+- `trace` — most detailed logs.

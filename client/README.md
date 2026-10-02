@@ -1,38 +1,39 @@
-# PadosiPro mobile
+# PadosiPro Client
 
-Native Expo app for the customer onboarding flow. No WebView.
+Expo / React Native app.
 
-## Run
+## Setup
 
 ```sh
 pnpm install
 cp .env.example .env
+```
+
+Set `EXPO_PUBLIC_API_URL` to the API address reachable from the app.
+
+## Start
+
+```sh
 pnpm start
 ```
 
-Set `EXPO_PUBLIC_API_URL` to an address reachable from the device.
-
-Android emulator:
+## Code structure
 
 ```text
-http://10.0.2.2:4000
+app/        Expo Router screens and route groups
+src/api/    API requests and shared request handling
+src/state/  Auth/session state
+src/storage/ SecureStore token persistence
+src/components/ Shared UI components
+src/theme/  Shared theme values
+src/utils/  Shared utilities and logging
 ```
 
-iOS simulator:
+Authentication and session restoration are handled through `AuthProvider`.
 
-```text
-http://127.0.0.1:4000
-```
+API access goes through the shared request client in `src/api/client.js`.
 
-Physical device: use the computer's LAN IP.
-
-## Android APK
-
-```sh
-pnpm dlx eas-cli@latest build --platform android --profile production
-```
-
-The production EAS profile is configured to output an APK.
+JWTs are stored with Expo SecureStore.
 
 ## Flow
 
@@ -40,16 +41,24 @@ The production EAS profile is configured to output an APK.
 register → verify email → login → profile → choose tasks → home
 ```
 
-The JWT is stored with Expo SecureStore and restored when the app starts.
+The JWT is restored when the app starts.
 
 ## States
 
 Network screens have loading, empty, and error/retry states. Submit actions lock while requests run.
 
-## Scope
-
-Account setup and task preferences only. No payments, chat, vendor marketplace, push notifications, or full request lifecycle.
-
 ## Debugging
 
-API requests send an `X-Request-Id` and log method, path, status, duration, and error code. The server returns the same ID. Match that ID with the API logs when debugging. Set `EXPO_PUBLIC_LOG_LEVEL=debug` for request logs.
+API requests send an `X-Request-Id` and log method, path, status, duration, and error code. The server returns the same ID. Match that ID with the API logs when debugging.
+
+`EXPO_PUBLIC_LOG_LEVEL` supports:
+
+- `silent` — disables client logs.
+- `error` — errors only.
+- `warn` — warnings and errors.
+- `info` — general request and application logs.
+- `debug` — detailed request debugging logs.
+
+## Scope
+
+Account setup and task selection only. No payments, chat, push notifications, or full request lifecycle.
