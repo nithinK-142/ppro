@@ -14,20 +14,37 @@ Requirements:
 
 From the repository root:
 
-```sh
-node scripts/dev.mjs
+### 1. Set the client API URL
+
+Edit `client/.env` and set `EXPO_PUBLIC_API_URL` to the API address reachable from the app.
+
+For a physical phone, use your computer's LAN IP and keep the phone and computer on the same Wi-Fi:
+
+```text
+http://<computer-lan-ip>:4000
 ```
 
-This is the only command needed to run both projects.
+Find the LAN IP with:
 
-It automatically:
+- Linux: `hostname -I`
+- macOS: `ipconfig getifaddr en0`
+- Windows: `ipconfig`
 
-1. Creates missing `.env` files from the committed `.env.example` files, so no manual .env configuration is required. Any API keys/credentials provided are temporary testing credentials only and are intended to be discarded after testing.
-2. Uses the pinned pnpm version from each project's `package.json` without requiring a global pnpm install.
-3. Installs both projects from their committed lockfiles.
-4. Starts the API and Expo together.
+For an Android emulator, use:
 
-Existing `.env` files are never overwritten.
+```text
+http://10.0.2.2:4000
+```
+
+### 2. Start the application
+
+```sh
+node run.mjs
+```
+
+`run.mjs` creates missing `.env` files, installs dependencies, validates the client API URL, and starts the API and Expo together.
+
+Any API keys/credentials provided are temporary testing credentials only and are intended to be discarded after testing.
 
 Press `Ctrl+C` to stop both processes.
 
@@ -45,14 +62,7 @@ These email credentials are provided only for testing and are intended to be dis
 register → verify email → login → profile → choose tasks → home
 ```
 
-The project uses the pre-configured environment variables. No client or server configuration is needed for the provided test setup.
+## Note
 
-## Build APK
-
-From `client/`:
-
-```sh
-npm add -g eas-cli
-npx eas-cli@latest login
-npx eas-cli@latest build --platform android --profile preview
-```
+- APK build instructions are documented in `client/README.md`.
+- API configuration instructions are documented in `server/README.md`.

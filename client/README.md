@@ -9,16 +9,48 @@ pnpm install
 cp .env.example .env
 ```
 
-Set `EXPO_PUBLIC_API_URL` to the API address reachable from the app.
+Set `EXPO_PUBLIC_API_URL` in `.env` to the API address reachable from the app.
+
+For a physical phone, use your computer's LAN IP and keep the phone and computer on the same Wi-Fi:
+
+```text
+http://<computer-lan-ip>:4000
+```
+
+Find the LAN IP with:
+
+```sh
+# Linux
+hostname -I
+
+# macOS
+ipconfig getifaddr en0
+
+# Windows
+ipconfig
+```
+
+For an Android emulator, use:
+
+```text
+http://10.0.2.2:4000
+```
+
+`EXPO_PUBLIC_*` values are inlined when the JavaScript bundle is built. After changing `client/.env`, stop Expo with `Ctrl+C` and start it again, or rebuild the APK.
 
 ## Start
 
 ```sh
 pnpm start
 ```
+
 ## Build the APK
 
 Built and tested on Linux (Zorin OS, Ubuntu-based). The commands use `apt`, so adjust the package install on other distros. The result is a release APK, debug-signed, arm64 only. Pick one of the two options below.
+
+The API URL is baked into the APK at build time, so set `EXPO_PUBLIC_API_URL` before building.
+
+Plain `http://` works in release builds because `usesCleartextTraffic: true` is enabled via `expo-build-properties` in `app.json`.
 
 ### Option 1: Docker
 
@@ -68,6 +100,8 @@ printf '\norg.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=1g\norg.gradle.workers.
 ```
 
 APK: `android/app/build/outputs/apk/release/app-release.apk`
+
+A prebuilt APK has the builder's IP baked into it. Build your own APK with your LAN IP using the steps above.
 
 Close heavy apps (browser, IDE) while it builds.
 
