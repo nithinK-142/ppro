@@ -5,8 +5,11 @@ const app = require('../src/app');
 const { db } = require('../src/db');
 const { generateOtp, hashOtp } = require('../src/utils/otp');
 
-beforeEach(() => {
-  db.exec('DELETE FROM user_tasks; DELETE FROM profiles; DELETE FROM email_otps; DELETE FROM users;');
+beforeEach(async () => {
+  await db.run('DELETE FROM user_tasks');
+  await db.run('DELETE FROM profiles');
+  await db.run('DELETE FROM email_otps');
+  await db.run('DELETE FROM users');
 });
 
 describe('authentication rules', () => {
@@ -26,10 +29,14 @@ describe('authentication rules', () => {
   });
 
   it('blocks the fifth wrong OTP attempt', async () => {
-    const result = db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)').run('otp@example.com', 'hash');
-    const userId = Number(result.lastInsertRowid);
-    db.prepare('INSERT INTO email_otps (user_id, code_hash, expires_at, attempts, sent_at) VALUES (?, ?, ?, 0, ?)')
-      .run(userId, hashOtp(generateOtp()), new Date(Date.now() + 600_000).toISOString(), new Date().toISOString());
+    const result = await db.get('INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id', ['otp@example.com', 'hash']);
+    const userId = result.id;
+    await db.run('INSERT INTO email_otps (user_id, code_hash, expires_at, attempts, sent_at) VALUES ($1, $2, $3, 0, $4)', [
+      userId,
+      hashOtp(generateOtp()),
+      new Date(Date.now() + 600_000).toISOString(),
+      new Date().toISOString()
+    ]);
 
     for (let attempt = 1; attempt <= 5; attempt += 1) {
       const response = await request(app).post('/api/v1/auth/verify-email').send({
@@ -39,7 +46,7 @@ describe('authentication rules', () => {
       expect(response.body.error.code).toBe('INVALID_OTP');
     }
 
-    const stored = db.prepare('SELECT attempts FROM email_otps WHERE user_id = ?').get(userId);
+    const stored = await db.get('SELECT attempts FROM email_otps WHERE user_id = $1', [userId]);
     expect(stored.attempts).toBe(5);
   });
 });

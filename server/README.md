@@ -9,7 +9,7 @@ pnpm install
 cp .env.example .env
 ```
 
-Set the required environment variables in `.env`.
+Set `DATABASE_URL` and the other required environment variables in `.env`.
 
 ## Start
 
@@ -25,9 +25,39 @@ For local development with watch mode:
 pnpm dev
 ```
 
+## Vercel
+
+This Express API deploys to Vercel with zero configuration. Vercel detects `src/server.js` and runs the Express app as a Vercel Function.
+
+Add these environment variables in Vercel Project Settings → Environment Variables:
+
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `JWT_EXPIRES_IN`
+- `OTP_SECRET`
+- `OTP_EXPIRES_MINUTES`
+- `OTP_RESEND_SECONDS`
+- `OTP_MAX_ATTEMPTS`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE`
+- `SMTP_REQUIRE_TLS`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `MAIL_FROM`
+- `CLIENT_ORIGIN`
+- `TRUST_PROXY`
+- `LOG_LEVEL`
+
+Set `NODE_ENV=production`.
+
+The APK should use the deployed Vercel URL as its API base URL, for example `https://your-project.vercel.app`.
+
+Vercel environment variables are configured outside the repository. Redeploy after changing them.
+
 ## Docker
 
-Run the API with Docker Compose:
+Docker uses the same Neon PostgreSQL database through `DATABASE_URL`.
 
 ```sh
 docker compose up --build
@@ -43,7 +73,7 @@ src/
 ├── routes/        API routes
 ├── middleware/    Auth, validation, rate limiting, request logging
 ├── validation/    Zod request schemas
-├── db/            SQLite setup, schema, and seed data
+├── db/            PostgreSQL setup, schema, and seed data
 ├── utils/         OTP and email helpers
 ├── logging/       Pino logger
 ├── config/        Environment configuration
@@ -106,7 +136,7 @@ Authorization and cookies are redacted from logs.
 
 ## Data
 
-SQLite stores application data.
+Neon PostgreSQL stores application data.
 
 `src/db/seed.js` seeds 30 task records across six categories.
 

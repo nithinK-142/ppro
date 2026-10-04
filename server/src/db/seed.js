@@ -1,4 +1,4 @@
-const { db } = require('./index');
+const { transaction } = require('./index');
 
 const tasks = [
   ['Errands & Daily Tasks', 'Courier pickup or drop', 'Collect or deliver a parcel locally.'],
@@ -38,10 +38,22 @@ const tasks = [
   ['Events & Management', 'Guest travel coordination', 'Coordinate stays and local transport for guests.']
 ];
 
-const insert = db.prepare('INSERT OR IGNORE INTO tasks (category, name, description) VALUES (?, ?, ?)');
-const seed = db.transaction(() => {
-  for (const [category, name, description] of tasks) insert.run(category, name, description);
-});
+let seedPromise;
 
-seed();
-require('../logging/logger').info({ count: tasks.length }, 'catalogue seeded');
+async function seedTasks() {
+  if (!seedPromise) {
+    seedPromise = transaction(async (tx) => {
+      for (const [category, name, description] of tasks) {
+        await tx.run(
+          'INSERT INTO tasks (category, name, description) VALUES ($1, $2, $3) ON CONFLICT(name) DO NOTHING',
+          [category, name, description]
+        );
+      }
+      require('../logging/logger').info({ count: tasks.length }, 'catalogue seeded');
+    });
+  }
+
+  return seedPromise;
+}
+
+module.exports = { seedTasks };

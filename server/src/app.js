@@ -11,6 +11,7 @@ const healthRoutes = require('./routes/health');
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
 const taskRoutes = require('./routes/tasks');
+const { seedTasks } = require('./db/seed');
 
 const app = express();
 app.disable('x-powered-by');
@@ -24,6 +25,14 @@ app.use(express.json({ limit: '20kb' }));
 
 app.use('/health', healthRoutes);
 app.use('/api/v1', apiLimiter);
+app.use('/api/v1', async (_req, _res, next) => {
+  try {
+    await seedTasks();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/profile', profileRoutes);
 app.use('/api/v1/tasks', taskRoutes);

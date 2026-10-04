@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { db } = require('../db');
+const { db, transaction } = require('../db');
 const env = require('../config/env');
 const AppError = require('../errors/app-error');
 const { generateOtp, hashOtp, otpMatches, otpExpired, resendAvailable } = require('../utils/otp');
@@ -18,7 +18,7 @@ function otpWindow() {
 
 async function register(req, res) {
   const { email, password } = req.body;
-  const existing = db.prepare('SELECT id, email_verified_at FROM users WHERE email = ?').get(email);
+  const existing = await db.get('SELECT id, email_verified_at FROM users WHERE email = $1', [email]);
 
   if (existing) {
     throw new AppError(409, 'EMAIL_EXISTS', existing.email_verified_at ? 'An account already exists for this email' : 'An account is already registered. Verify the email or request a new code.');
@@ -28,14 +28,18 @@ async function register(req, res) {
   const code = generateOtp();
   const { sentAt, expiresAt } = otpWindow();
 
-  const create = db.transaction(() => {
-    const result = db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)').run(email, passwordHash);
-    db.prepare('INSERT INTO email_otps (user_id, code_hash, expires_at, attempts, sent_at) VALUES (?, ?, ?, 0, ?)')
-      .run(result.lastInsertRowid, hashOtp(code), expiresAt.toISOString(), sentAt.toISOString());
-    return Number(result.lastInsertRowid);
+  const userId = await transaction(async (tx) => {
+    const result = await tx.get(
+      'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id',
+      [email, passwordHash]
+    );
+    await tx.run(
+      'INSERT INTO email_otps (user_id, code_hash, expires_at, attempts, sent_at) VALUES ($1, $2, $3, 0, $4)',
+      [result.id, hashOtp(code), expiresAt.toISOString(), sentAt.toISOString()]
+    );
+    return result.id;
   });
 
-  const userId = create();
   req.log.info({ event: 'auth.registered', userId }, 'user registered');
 
   void sendOtp(email, code)
@@ -57,25 +61,25 @@ async function register(req, res) {
 
 async function verifyEmail(req, res) {
   const { email, otp } = req.body;
-  const user = db.prepare('SELECT id, email_verified_at FROM users WHERE email = ?').get(email);
+  const user = await db.get('SELECT id, email_verified_at FROM users WHERE email = $1', [email]);
   if (!user) throw new AppError(400, 'INVALID_OTP', 'The verification code is invalid or expired');
   if (user.email_verified_at) return res.json({ data: { verified: true } });
 
-  const record = db.prepare('SELECT code_hash, expires_at, attempts FROM email_otps WHERE user_id = ?').get(user.id);
+  const record = await db.get('SELECT code_hash, expires_at, attempts FROM email_otps WHERE user_id = $1', [user.id]);
   if (!record || record.attempts >= env.OTP_MAX_ATTEMPTS || otpExpired(record.expires_at)) {
     throw new AppError(400, 'INVALID_OTP', 'The verification code is invalid or expired');
   }
 
   if (!otpMatches(otp, record.code_hash)) {
     const attempts = record.attempts + 1;
-    db.prepare('UPDATE email_otps SET attempts = ? WHERE user_id = ?').run(attempts, user.id);
+    await db.run('UPDATE email_otps SET attempts = $1 WHERE user_id = $2', [attempts, user.id]);
     throw new AppError(400, 'INVALID_OTP', attempts >= env.OTP_MAX_ATTEMPTS ? 'Too many incorrect attempts. Request a new code.' : 'The verification code is incorrect');
   }
 
-  db.transaction(() => {
-    db.prepare('UPDATE users SET email_verified_at = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
-    db.prepare('DELETE FROM email_otps WHERE user_id = ?').run(user.id);
-  })();
+  await transaction(async (tx) => {
+    await tx.run('UPDATE users SET email_verified_at = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
+    await tx.run('DELETE FROM email_otps WHERE user_id = $1', [user.id]);
+  });
 
   req.log.info({ event: 'auth.email_verified', userId: user.id }, 'email verified');
   return res.json({ data: { verified: true } });
@@ -83,18 +87,20 @@ async function verifyEmail(req, res) {
 
 async function resendVerification(req, res) {
   const { email } = req.body;
-  const user = db.prepare('SELECT id, email_verified_at FROM users WHERE email = ?').get(email);
+  const user = await db.get('SELECT id, email_verified_at FROM users WHERE email = $1', [email]);
   if (!user) throw new AppError(404, 'EMAIL_NOT_FOUND', 'No account exists for this email');
   if (user.email_verified_at) return res.json({ data: { verified: true } });
 
-  const current = db.prepare('SELECT sent_at FROM email_otps WHERE user_id = ?').get(user.id);
+  const current = await db.get('SELECT sent_at FROM email_otps WHERE user_id = $1', [user.id]);
   const wait = current ? resendAvailable(current.sent_at) : 0;
   if (wait > 0) throw new AppError(429, 'OTP_COOLDOWN', `Try again in ${wait} seconds`, { retryAfterSeconds: wait });
 
   const code = generateOtp();
   const { sentAt, expiresAt } = otpWindow();
-  db.prepare('INSERT INTO email_otps (user_id, code_hash, expires_at, attempts, sent_at) VALUES (?, ?, ?, 0, ?) ON CONFLICT(user_id) DO UPDATE SET code_hash = excluded.code_hash, expires_at = excluded.expires_at, attempts = 0, sent_at = excluded.sent_at')
-    .run(user.id, hashOtp(code), expiresAt.toISOString(), sentAt.toISOString());
+  await db.run(
+    'INSERT INTO email_otps (user_id, code_hash, expires_at, attempts, sent_at) VALUES ($1, $2, $3, 0, $4) ON CONFLICT(user_id) DO UPDATE SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, attempts = 0, sent_at = EXCLUDED.sent_at',
+    [user.id, hashOtp(code), expiresAt.toISOString(), sentAt.toISOString()]
+  );
 
   void sendOtp(email, code)
     .then(() => {
@@ -113,7 +119,7 @@ async function resendVerification(req, res) {
 
 async function login(req, res) {
   const { email, password } = req.body;
-  const user = db.prepare('SELECT id, password_hash, email_verified_at FROM users WHERE email = ?').get(email);
+  const user = await db.get('SELECT id, password_hash, email_verified_at FROM users WHERE email = $1', [email]);
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
     throw new AppError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect');
   }
