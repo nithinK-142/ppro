@@ -37,7 +37,18 @@ async function register(req, res) {
 
   const userId = create();
   req.log.info({ event: 'auth.registered', userId }, 'user registered');
-  await sendOtp(email, code);
+
+  void sendOtp(email, code)
+    .then(() => {
+      req.log.info({ event: 'auth.otp_sent', userId }, 'verification code sent');
+    })
+    .catch((err) => {
+      req.log.error({
+        err,
+        event: 'auth.otp_send_failed',
+        userId
+      }, 'failed to send verification code');
+    });
 
   return res.status(201).json({
     data: { userId, email, verificationRequired: true }
@@ -85,8 +96,18 @@ async function resendVerification(req, res) {
   db.prepare('INSERT INTO email_otps (user_id, code_hash, expires_at, attempts, sent_at) VALUES (?, ?, ?, 0, ?) ON CONFLICT(user_id) DO UPDATE SET code_hash = excluded.code_hash, expires_at = excluded.expires_at, attempts = 0, sent_at = excluded.sent_at')
     .run(user.id, hashOtp(code), expiresAt.toISOString(), sentAt.toISOString());
 
-  await sendOtp(email, code);
-  req.log.info({ event: 'auth.otp_resent', userId: user.id }, 'verification code resent');
+  void sendOtp(email, code)
+    .then(() => {
+      req.log.info({ event: 'auth.otp_resent', userId: user.id }, 'verification code sent');
+    })
+    .catch((err) => {
+      req.log.error({
+        err,
+        event: 'auth.otp_send_failed',
+        userId: user.id
+      }, 'failed to send verification code');
+    });
+
   return res.json({ data: { sent: true } });
 }
 

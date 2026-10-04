@@ -6,7 +6,10 @@ const transporter = nodemailer.createTransport({
   port: env.SMTP_PORT,
   secure: env.SMTP_SECURE,
   auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
-  requireTLS: env.SMTP_REQUIRE_TLS
+  requireTLS: env.SMTP_REQUIRE_TLS,
+  connectionTimeout: env.SMTP_CONNECTION_TIMEOUT_MS,
+  greetingTimeout: env.SMTP_GREETING_TIMEOUT_MS,
+  socketTimeout: env.SMTP_SOCKET_TIMEOUT_MS
 });
 
 async function sendOtp(email, code) {
