@@ -62,6 +62,8 @@ register → verify email → login → profile → choose tasks → home
 
 OTP verification is required before login.
 
+Registration and OTP resend persist the OTP before returning and dispatch the email in the background. Check `auth.otp_sent` or `auth.otp_send_failed` logs when debugging delivery.
+
 ## API
 
 - OpenAPI: `docs/openapi.yaml`
