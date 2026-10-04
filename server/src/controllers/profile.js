@@ -1,14 +1,14 @@
 const { db } = require('../db');
 const AppError = require('../errors/app-error');
 
-function getMe(req, res) {
-  const user = db.prepare('SELECT id, email, email_verified_at, created_at FROM users WHERE id = ?').get(req.userId);
+async function getMe(req, res) {
+  const user = await db.get('SELECT id, email, email_verified_at, created_at FROM users WHERE id = $1', [req.userId]);
   if (!user) throw new AppError(401, 'UNAUTHORIZED', 'User no longer exists');
 
-  const profile = db.prepare('SELECT name, mobile, address, business_name AS businessName, updated_at FROM profiles WHERE user_id = ?').get(req.userId) || null;
-  const tasks = db.prepare(`SELECT t.id, t.name, t.category, t.description
+  const profile = await db.get('SELECT name, mobile, address, business_name AS "businessName", updated_at FROM profiles WHERE user_id = $1', [req.userId]) || null;
+  const tasks = await db.all(`SELECT t.id, t.name, t.category, t.description
     FROM user_tasks ut JOIN tasks t ON t.id = ut.task_id
-    WHERE ut.user_id = ? ORDER BY t.category, t.name`).all(req.userId);
+    WHERE ut.user_id = $1 ORDER BY t.category, t.name`, [req.userId]);
 
   res.json({
     data: {
@@ -20,14 +20,14 @@ function getMe(req, res) {
   });
 }
 
-function updateProfile(req, res) {
+async function updateProfile(req, res) {
   const { name, mobile, address, businessName } = req.body;
-  db.prepare(`INSERT INTO profiles (user_id, name, mobile, address, business_name)
-    VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(user_id) DO UPDATE SET name = excluded.name, mobile = excluded.mobile, address = excluded.address, business_name = excluded.business_name, updated_at = CURRENT_TIMESTAMP`)
-    .run(req.userId, name, mobile, address, businessName || null);
+  await db.run(`INSERT INTO profiles (user_id, name, mobile, address, business_name)
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT(user_id) DO UPDATE SET name = EXCLUDED.name, mobile = EXCLUDED.mobile, address = EXCLUDED.address, business_name = EXCLUDED.business_name, updated_at = CURRENT_TIMESTAMP`,
+    [req.userId, name, mobile, address, businessName || null]);
 
-  const profile = db.prepare('SELECT name, mobile, address, business_name AS businessName, updated_at FROM profiles WHERE user_id = ?').get(req.userId);
+  const profile = await db.get('SELECT name, mobile, address, business_name AS "businessName", updated_at FROM profiles WHERE user_id = $1', [req.userId]);
   res.json({ data: profile });
 }
 

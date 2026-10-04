@@ -5,7 +5,7 @@ const { z } = require('zod');
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
-  DATABASE_PATH: z.string().min(1).default('./data/padosipro.db'),
+  DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().min(2).default('7d'),
   OTP_SECRET: z.string().min(32),

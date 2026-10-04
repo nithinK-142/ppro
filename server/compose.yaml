@@ -4,9 +4,6 @@ services:
     env_file: .env
     environment:
       NODE_ENV: production
-      DATABASE_PATH: /app/data/padosipro.db
       CLIENT_ORIGIN: http://localhost:8081
     ports:
       - "4000:4000"
-    volumes:
-      - ./data:/app/data

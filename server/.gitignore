@@ -4,7 +4,4 @@ node_modules/
 !.env.example
 coverage/
 *.log
-data/*.db
-data/*.db-wal
-data/*.db-shm
 .DS_Store
