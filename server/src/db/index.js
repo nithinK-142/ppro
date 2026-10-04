@@ -1,9 +1,9 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { neon, Client } = require('@neondatabase/serverless');
+const { Pool, Client } = require('@neondatabase/serverless');
 const env = require('../config/env');
 
-const sql = neon(env.DATABASE_URL);
+const pool = new Pool({ connectionString: env.DATABASE_URL });
 let initializePromise;
 
 async function initializeDatabase() {
@@ -25,7 +25,7 @@ async function initializeDatabase() {
 
 async function query(text, params = []) {
   await initializeDatabase();
-  return sql.query(text, params);
+  return pool.query(text, params);
 }
 
 function createQueryApi(executor) {
@@ -48,8 +48,7 @@ const db = createQueryApi({ query });
 
 async function transaction(callback) {
   await initializeDatabase();
-  const client = new Client(env.DATABASE_URL);
-  await client.connect();
+  const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
@@ -63,20 +62,22 @@ async function transaction(callback) {
     } catch {}
     throw error;
   } finally {
-    await client.end();
+    client.release();
   }
 }
 
 async function pingDatabase() {
   try {
     await initializeDatabase();
-    await sql.query('SELECT 1');
+    await pool.query('SELECT 1');
     return true;
   } catch {
     return false;
   }
 }
 
-async function closeDatabase() {}
+async function closeDatabase() {
+  await pool.end();
+}
 
 module.exports = { db, transaction, pingDatabase, initializeDatabase, closeDatabase };
