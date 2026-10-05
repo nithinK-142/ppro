@@ -2,17 +2,29 @@ const { db } = require('../db');
 const AppError = require('../errors/app-error');
 
 async function getMe(req, res) {
-  const user = await db.get('SELECT id, email, email_verified_at, created_at FROM users WHERE id = $1', [req.userId]);
-  if (!user) throw new AppError(401, 'UNAUTHORIZED', 'User no longer exists');
+  const [row, tasks] = await Promise.all([
+    db.get(`SELECT u.id, u.email, u.email_verified_at, u.created_at,
+        p.name, p.mobile, p.address, p.business_name AS "businessName", p.updated_at AS profile_updated_at
+        FROM users u LEFT JOIN profiles p ON p.user_id = u.id
+        WHERE u.id = $1`, [req.userId]),
+    db.all(`SELECT t.id, t.name, t.category, t.description
+      FROM user_tasks ut JOIN tasks t ON t.id = ut.task_id
+      WHERE ut.user_id = $1 ORDER BY t.category, t.name`, [req.userId])
+  ]);
 
-  const profile = await db.get('SELECT name, mobile, address, business_name AS "businessName", updated_at FROM profiles WHERE user_id = $1', [req.userId]) || null;
-  const tasks = await db.all(`SELECT t.id, t.name, t.category, t.description
-    FROM user_tasks ut JOIN tasks t ON t.id = ut.task_id
-    WHERE ut.user_id = $1 ORDER BY t.category, t.name`, [req.userId]);
+  if (!row) throw new AppError(401, 'UNAUTHORIZED', 'User no longer exists');
+
+  const profile = row.name ? {
+    name: row.name,
+    mobile: row.mobile,
+    address: row.address,
+    businessName: row.businessName,
+    updated_at: row.profile_updated_at
+  } : null;
 
   res.json({
     data: {
-      user: { id: user.id, email: user.email, emailVerifiedAt: user.email_verified_at },
+      user: { id: row.id, email: row.email, emailVerifiedAt: row.email_verified_at },
       profile,
       selectedTasks: tasks,
       setupComplete: Boolean(profile && tasks.length)
