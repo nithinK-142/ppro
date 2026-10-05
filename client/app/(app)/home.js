@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { getSelectedTasks } from '../../src/api/tasks';
+import { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AccountMenu } from '../../src/components/AccountMenu';
 import { Button } from '../../src/components/Button';
 import { ProfileIcon } from '../../src/components/ProfileIcon';
@@ -18,29 +17,9 @@ const HOW_IT_WORKS = [
 ];
 
 export default function Home() {
-  const { user, profile, selectedTasks, updateTasks, signOut } = useAuth();
-  const [tasks, setTasks] = useState(selectedTasks);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { user, profile, selectedTasks, signOut } = useAuth();
+  const tasks = selectedTasks;
   const [menuVisible, setMenuVisible] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await getSelectedTasks();
-      setTasks(data || []);
-      updateTasks(data || []);
-    } catch (requestError) {
-      setError(requestError.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [updateTasks]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const groupedTasks = useMemo(() => {
     const groups = new Map();
@@ -92,18 +71,7 @@ export default function Home() {
         </View>
       </View>
 
-      {loading ? (
-        <View style={styles.loading}>
-          <ActivityIndicator color={colors.accent} />
-          <Text style={styles.muted}>Loading your setup…</Text>
-        </View>
-      ) : null}
-
-      {!loading && error ? (
-        <StateCard title="Could not load your setup" message={error} actionLabel="Retry" onAction={load} />
-      ) : null}
-
-      {!loading && !error && !tasks.length ? (
+      {!tasks.length ? (
         <StateCard
           title="Your service list is empty"
           message="Choose the things you would rather not coordinate yourself."
@@ -112,7 +80,7 @@ export default function Home() {
         />
       ) : null}
 
-      {!loading && !error && tasks.length ? (
+      {tasks.length ? (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View>
@@ -212,7 +180,6 @@ const styles = StyleSheet.create({
   heroMetric: { width: 74, alignItems: 'flex-end', paddingBottom: 2 },
   heroNumber: { color: colors.white, fontSize: 32, lineHeight: 34, fontWeight: '900' },
   heroLabel: { color: '#DCD9D0', fontSize: 12, fontWeight: '700', marginTop: 2 },
-  loading: { alignItems: 'center', paddingVertical: spacing.xl, gap: spacing.sm },
   muted: { color: colors.muted },
   section: { gap: spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: spacing.md },

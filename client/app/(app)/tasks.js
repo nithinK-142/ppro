@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { getTasks, saveSelectedTasks } from '../../src/api/tasks';
 import { Button } from '../../src/components/Button';
@@ -21,23 +21,32 @@ export default function Tasks() {
   const [error, setError] = useState('');
   const [review, setReview] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const result = await getTasks({ search, category: category === 'All' ? undefined : category });
+      const result = await getTasks({ limit: 50 });
       setTasks(result || []);
     } catch (requestError) {
       setError(requestError.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    const timer = setTimeout(load, 180);
-    return () => clearTimeout(timer);
-  }, [search, category]);
+    load();
+  }, [load]);
+
+  const visibleTasks = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    return tasks.filter((task) => {
+      if (category !== 'All' && task.category !== category) return false;
+      if (!normalizedSearch) return true;
+      return task.name.toLowerCase().includes(normalizedSearch)
+        || task.description.toLowerCase().includes(normalizedSearch);
+    });
+  }, [tasks, search, category]);
 
   const selectedItems = useMemo(() => [...selected]
     .map((id) => tasks.find((task) => task.id === id) || selectedTasks.find((task) => task.id === id))
@@ -45,12 +54,12 @@ export default function Tasks() {
 
   const groupedTasks = useMemo(() => {
     const groups = new Map();
-    for (const task of tasks) {
+    for (const task of visibleTasks) {
       if (!groups.has(task.category)) groups.set(task.category, []);
       groups.get(task.category).push(task);
     }
     return [...groups.entries()];
-  }, [tasks]);
+  }, [visibleTasks]);
 
   const toggle = (id) => {
     setSelected((current) => {
@@ -136,7 +145,7 @@ export default function Tasks() {
 
       {loading ? <View style={styles.loading}><ActivityIndicator color={colors.accent} /><Text style={styles.muted}>Loading tasks…</Text></View> : null}
       {!loading && error ? <StateCard title="Could not load tasks" message={error} actionLabel="Retry" onAction={load} /> : null}
-      {!loading && !error && !tasks.length ? <StateCard title="No matching tasks" message="Try a different search or category." /> : null}
+      {!loading && !error && !visibleTasks.length ? <StateCard title="No matching tasks" message="Try a different search or category." /> : null}
 
       <View style={styles.list}>
         {!loading && !error && groupedTasks.map(([group, groupTasks]) => (
