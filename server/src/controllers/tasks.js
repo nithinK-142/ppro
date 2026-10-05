@@ -18,13 +18,14 @@ async function listTasks(req, res) {
   }
 
   const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
-  const totalResult = await db.get(`SELECT COUNT(*)::int AS count FROM tasks ${where}`, values);
   const offset = (page - 1) * limit;
   const tasksValues = [...values, limit, offset];
   const limitIndex = tasksValues.length - 1;
   const offsetIndex = tasksValues.length;
-  const tasks = await db.all(`SELECT id, name, category, description FROM tasks ${where} ORDER BY category, name LIMIT $${limitIndex} OFFSET $${offsetIndex}`, tasksValues);
-  const total = Number(totalResult.count);
+  const rows = await db.all(`SELECT id, name, category, description, COUNT(*) OVER()::int AS total_count
+    FROM tasks ${where} ORDER BY category, name LIMIT $${limitIndex} OFFSET $${offsetIndex}`, tasksValues);
+  const total = rows.length ? Number(rows[0].total_count) : 0;
+  const tasks = rows.map(({ total_count, ...task }) => task);
 
   res.json({
     data: tasks,
@@ -53,9 +54,12 @@ async function saveSelectedTasks(req, res) {
 
   await transaction(async (tx) => {
     await tx.run('DELETE FROM user_tasks WHERE user_id = $1', [req.userId]);
-    for (const taskId of taskIds) {
-      await tx.run('INSERT INTO user_tasks (user_id, task_id) VALUES ($1, $2)', [req.userId, taskId]);
-    }
+    const values = [req.userId];
+    const rowPlaceholders = taskIds.map((taskId) => {
+      values.push(taskId);
+      return `($1, $${values.length})`;
+    });
+    await tx.run(`INSERT INTO user_tasks (user_id, task_id) VALUES ${rowPlaceholders.join(',')}`, values);
   });
 
   return listSelectedTasks(req, res);
