@@ -1,10 +1,37 @@
 import { request } from './client';
 
-export const getTasks = ({ search = '', category, page = 1, limit = 50 } = {}) => {
+const CATALOGUE_TTL_MS = 5 * 60 * 1000;
+let catalogueCache = null;
+let catalogueCachedAt = 0;
+let catalogueRequest = null;
+
+export async function getTasks({ search = '', category, page = 1, limit = 50 } = {}) {
+  const useCatalogueCache = !search && !category && page === 1 && limit >= 50;
+
+  if (useCatalogueCache && catalogueCache && Date.now() - catalogueCachedAt < CATALOGUE_TTL_MS) {
+    return catalogueCache;
+  }
+
+  if (useCatalogueCache && catalogueRequest) return catalogueRequest;
+
   const params = new URLSearchParams({ search, page: String(page), limit: String(limit) });
   if (category) params.set('category', category);
-  return request(`/api/v1/tasks?${params.toString()}`);
-};
+
+  const promise = request(`/api/v1/tasks?${params.toString()}`);
+  if (!useCatalogueCache) return promise;
+
+  catalogueRequest = promise
+    .then((data) => {
+      catalogueCache = data || [];
+      catalogueCachedAt = Date.now();
+      return catalogueCache;
+    })
+    .finally(() => {
+      catalogueRequest = null;
+    });
+
+  return catalogueRequest;
+}
 
 export const saveSelectedTasks = (taskIds) => request('/api/v1/tasks/selected', {
   method: 'PUT',
@@ -12,3 +39,8 @@ export const saveSelectedTasks = (taskIds) => request('/api/v1/tasks/selected', 
 });
 
 export const getSelectedTasks = () => request('/api/v1/tasks/selected');
+
+export function invalidateTaskCatalogue() {
+  catalogueCache = null;
+  catalogueCachedAt = 0;
+}
