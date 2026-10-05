@@ -52,7 +52,7 @@ Press `Ctrl+C` to stop both processes.
 
 Use a [**YOPmail**](https://yopmail.com/en/) address when registering for testing.
 
-The app uses **Mailjet SMTP** for verification emails. The provided Mailjet setup was tested successfully with YOPmail. Proton Mail and Gmail did not receive the verification emails in the tested setup.
+The app uses **Mailjet Send API v3.1 over HTTPS** for verification emails. The provided Mailjet setup was tested successfully with YOPmail. Proton Mail and Gmail did not receive the verification emails in the tested setup.
 
 These email credentials are provided only for testing and are intended to be discarded thereafter.
 

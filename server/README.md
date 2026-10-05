@@ -38,13 +38,12 @@ Add these environment variables in Vercel Project Settings → Environment Varia
 - `OTP_EXPIRES_MINUTES`
 - `OTP_RESEND_SECONDS`
 - `OTP_MAX_ATTEMPTS`
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_SECURE`
-- `SMTP_REQUIRE_TLS`
-- `SMTP_USER`
-- `SMTP_PASS`
-- `MAIL_FROM`
+- `MAILJET_API_KEY`
+- `MAILJET_SECRET_KEY`
+- `MAILJET_SEND_URL`
+- `MAILJET_TIMEOUT_MS`
+- `MAIL_FROM_EMAIL`
+- `MAIL_FROM_NAME`
 - `CLIENT_ORIGIN`
 - `TRUST_PROXY`
 - `LOG_LEVEL`
@@ -150,9 +149,7 @@ Tests cover OTP generation, hashing, expiry, resend timing, wrong-attempt limits
 
 ## Mail
 
-Email is sent through Mailjet SMTP.
-
-Configure `SMTP_USER`, `SMTP_PASS`, `SMTP_HOST`, `SMTP_PORT`, and `MAIL_FROM` in `.env`.
+Email is sent through Mailjet Send API v3.1 over HTTPS. Configure `MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, `MAIL_FROM_EMAIL`, and `MAIL_FROM_NAME` in `.env`.
 
 ## Debugging
 

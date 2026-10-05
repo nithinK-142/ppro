@@ -1,36 +1,38 @@
-const nodemailer = require('nodemailer');
 const env = require('../config/env');
-
-const transporter = nodemailer.createTransport({
-  host: env.SMTP_HOST,
-  port: env.SMTP_PORT,
-  secure: env.SMTP_SECURE,
-  auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
-  requireTLS: env.SMTP_REQUIRE_TLS,
-  connectionTimeout: env.SMTP_CONNECTION_TIMEOUT_MS,
-  greetingTimeout: env.SMTP_GREETING_TIMEOUT_MS,
-  socketTimeout: env.SMTP_SOCKET_TIMEOUT_MS
-});
 
 async function sendOtp(email, code) {
   if (env.NODE_ENV === 'test') return;
 
   const expiresIn = env.OTP_EXPIRES_MINUTES;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), env.MAILJET_TIMEOUT_MS);
 
-  await transporter.sendMail({
-    from: env.MAIL_FROM,
-    to: email,
-    subject: 'Your PadosiPro verification code',
-    text: [
-      'Verify your email for PadosiPro.',
-      '',
-      `Your verification code: ${code}`,
-      '',
-      `This code expires in ${expiresIn} minutes.`,
-      '',
-      "If you didn't request this email, you can ignore it."
-    ].join('\n'),
-    html: `
+  try {
+    const response = await fetch(env.MAILJET_SEND_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${env.MAILJET_API_KEY}:${env.MAILJET_SECRET_KEY}`).toString('base64')}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        Messages: [{
+          From: {
+            Email: env.MAIL_FROM_EMAIL,
+            Name: env.MAIL_FROM_NAME
+          },
+          To: [{ Email: email }],
+          Subject: 'Your PadosiPro verification code',
+          TextPart: [
+            'Verify your email for PadosiPro.',
+            '',
+            `Your verification code: ${code}`,
+            '',
+            `This code expires in ${expiresIn} minutes.`,
+            '',
+            "If you didn't request this email, you can ignore it."
+          ].join('\n'),
+          HTMLPart: `
       <!doctype html>
       <html lang="en">
         <head>
@@ -109,7 +111,36 @@ async function sendOtp(email, code) {
         </body>
       </html>
     `
-  });
+        }]
+      }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      let responseBody = '';
+      try {
+        responseBody = await response.text();
+      } catch {
+        responseBody = '';
+      }
+
+      const error = new Error(`Mailjet send failed with status ${response.status}`);
+      error.code = 'MAILJET_API_ERROR';
+      error.statusCode = response.status;
+      error.responseBody = responseBody.slice(0, 2000);
+      throw error;
+    }
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      const error = new Error('Mailjet request timeout');
+      error.code = 'MAILJET_TIMEOUT';
+      error.cause = err;
+      throw error;
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 module.exports = { sendOtp };
