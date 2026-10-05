@@ -2,6 +2,7 @@ import { getToken } from '../storage/token';
 import { logger } from '../utils/logger';
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
+const REQUEST_TIMEOUT_MS = 15_000;
 
 function createRequestId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -38,11 +39,15 @@ export async function request(path, options = {}) {
 
   logger.debug('api.request', { method, path, requestId });
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   let response;
   try {
-    response = await fetch(url, { ...options, headers });
+    response = await fetch(url, { ...options, headers, signal: controller.signal });
   } catch (error) {
-    logger.error('api.network_error', {
+    const timedOut = error?.name === 'AbortError';
+    logger.error(timedOut ? 'api.timeout' : 'api.network_error', {
       method,
       path,
       requestId,
@@ -50,11 +55,13 @@ export async function request(path, options = {}) {
       message: error?.message
     });
     throw new ApiError(
-      'Network error. Check your connection and try again.',
-      'NETWORK_ERROR',
+      timedOut ? 'Request timed out. Check your connection and try again.' : 'Network error. Check your connection and try again.',
+      timedOut ? 'TIMEOUT' : 'NETWORK_ERROR',
       0,
       { requestId }
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   const responseRequestId = response.headers.get('X-Request-Id') || requestId;
