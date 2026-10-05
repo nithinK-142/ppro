@@ -12,16 +12,12 @@ const envSchema = z.object({
   OTP_EXPIRES_MINUTES: z.coerce.number().int().min(1).max(60).default(10),
   OTP_RESEND_SECONDS: z.coerce.number().int().min(10).max(300).default(30),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(5),
-  SMTP_HOST: z.string().min(1),
-  SMTP_PORT: z.coerce.number().int().min(1).max(65535),
-  SMTP_SECURE: z.string().default('false'),
-  SMTP_REQUIRE_TLS: z.string().default('false'),
-  SMTP_USER: z.string().optional().default(''),
-  SMTP_PASS: z.string().optional().default(''),
-  SMTP_CONNECTION_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(10000),
-  SMTP_GREETING_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(10000),
-  SMTP_SOCKET_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(10000),
-  MAIL_FROM: z.string().min(1),
+  MAILJET_API_KEY: z.string().min(1),
+  MAILJET_SECRET_KEY: z.string().min(1),
+  MAILJET_SEND_URL: z.string().url().default('https://api.mailjet.com/v3.1/send'),
+  MAILJET_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(10000),
+  MAIL_FROM_EMAIL: z.string().email(),
+  MAIL_FROM_NAME: z.string().min(1).default('PadosiPro'),
   CLIENT_ORIGIN: z.string().min(1).default('http://localhost:8081'),
   TRUST_PROXY: z.string().optional().default('false'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info')
@@ -43,8 +39,6 @@ if (!parsed.success) {
 
 const env = {
   ...parsed.data,
-  SMTP_SECURE: parsed.data.SMTP_SECURE === 'true',
-  SMTP_REQUIRE_TLS: parsed.data.SMTP_REQUIRE_TLS === 'true',
   TRUST_PROXY: parsed.data.TRUST_PROXY === 'true'
 };
 

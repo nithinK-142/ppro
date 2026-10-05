@@ -5,6 +5,7 @@ const env = require('../config/env');
 const AppError = require('../errors/app-error');
 const { generateOtp, hashOtp, otpMatches, otpExpired, resendAvailable } = require('../utils/otp');
 const { sendOtp } = require('../utils/mailer');
+const { waitUntil } = require('@vercel/functions');
 
 function createToken(userId) {
   return jwt.sign({ sub: userId }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN });
@@ -42,7 +43,7 @@ async function register(req, res) {
 
   req.log.info({ event: 'auth.registered', userId }, 'user registered');
 
-  void sendOtp(email, code)
+  waitUntil(sendOtp(email, code)
     .then(() => {
       req.log.info({ event: 'auth.otp_sent', userId }, 'verification code sent');
     })
@@ -52,7 +53,7 @@ async function register(req, res) {
         event: 'auth.otp_send_failed',
         userId
       }, 'failed to send verification code');
-    });
+    }));
 
   return res.status(201).json({
     data: { userId, email, verificationRequired: true }
@@ -102,7 +103,7 @@ async function resendVerification(req, res) {
     [user.id, hashOtp(code), expiresAt.toISOString(), sentAt.toISOString()]
   );
 
-  void sendOtp(email, code)
+  waitUntil(sendOtp(email, code)
     .then(() => {
       req.log.info({ event: 'auth.otp_resent', userId: user.id }, 'verification code sent');
     })
@@ -112,7 +113,7 @@ async function resendVerification(req, res) {
         event: 'auth.otp_send_failed',
         userId: user.id
       }, 'failed to send verification code');
-    });
+    }));
 
   return res.json({ data: { sent: true } });
 }

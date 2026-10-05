@@ -22,7 +22,7 @@
 
 - Passwords use bcrypt. OTPs are generated with `crypto`. Only the OTP hash is stored.
 
-- OTP emails are sent through Mailjet SMTP.
+- OTP emails are sent through Mailjet Send API v3.1 over HTTPS.
 
 OTP:
 - Expires after 10 minutes.
