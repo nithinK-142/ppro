@@ -127,7 +127,22 @@ async function login(req, res) {
     throw new AppError(403, 'EMAIL_NOT_VERIFIED', 'Verify your email before logging in');
   }
 
-  return res.json({ data: { token: createToken(user.id) } });
+  const [profile, selectedTasks] = await Promise.all([
+    db.get('SELECT name, mobile, address, business_name AS "businessName", updated_at FROM profiles WHERE user_id = $1', [user.id]),
+    db.all(`SELECT t.id, t.name, t.category, t.description
+      FROM user_tasks ut JOIN tasks t ON t.id = ut.task_id
+      WHERE ut.user_id = $1 ORDER BY t.category, t.name`, [user.id])
+  ]);
+
+  return res.json({
+    data: {
+      token: createToken(user.id),
+      user: { id: user.id, email: user.email, emailVerifiedAt: user.email_verified_at },
+      profile: profile || null,
+      selectedTasks,
+      setupComplete: Boolean(profile && selectedTasks.length)
+    }
+  });
 }
 
 module.exports = { register, verifyEmail, resendVerification, login };

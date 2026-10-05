@@ -12,6 +12,13 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [selectedTasks, setSelectedTasks] = useState([]);
 
+  const applySession = useCallback((data) => {
+    setUser(data.user);
+    setProfile(data.profile);
+    setSelectedTasks(data.selectedTasks || []);
+    setStatus('signed_in');
+  }, []);
+
   const refresh = useCallback(async () => {
     const token = await getToken();
     if (!token) {
@@ -20,11 +27,7 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      const data = await getMe();
-      setUser(data.user);
-      setProfile(data.profile);
-      setSelectedTasks(data.selectedTasks);
-      setStatus('signed_in');
+      applySession(await getMe());
     } catch (error) {
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         await clearToken();
@@ -37,7 +40,7 @@ export function AuthProvider({ children }) {
 
       setStatus('session_error');
     }
-  }, []);
+  }, [applySession]);
 
   useEffect(() => {
     refresh();
@@ -46,8 +49,14 @@ export function AuthProvider({ children }) {
   const signIn = useCallback(async (email, password) => {
     const data = await loginRequest({ email, password });
     await setToken(data.token);
-    await refresh();
-  }, [refresh]);
+
+    if (data.user) {
+      applySession(data);
+      return;
+    }
+
+    applySession(await getMe());
+  }, [applySession]);
 
   const signOut = useCallback(async () => {
     await clearToken();
