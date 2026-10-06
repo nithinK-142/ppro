@@ -22,6 +22,13 @@ const validate = ({ body, query, params }: ValidationConfig): RequestHandler => 
       next(new AppError(400, 'VALIDATION_ERROR', 'Request validation failed', result.error.flatten().fieldErrors));
       return;
     }
+    if (source === 'query') {
+      const target = req.query;
+      for (const key of Object.keys(target)) delete target[key];
+      Object.assign(target, result.data as Record<string, unknown>);
+      continue;
+    }
+
     req[source] = result.data;
   }
 
