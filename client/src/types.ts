@@ -20,7 +20,7 @@ export type Profile = {
 };
 
 export type SessionData = {
-  token?: string;
+  token: string;
   user: User;
   profile: Profile | null;
   selectedTasks: Task[];
