@@ -122,6 +122,14 @@ adb install -r app/build/outputs/apk/release/app-release.apk
 
 `adb` comes with the Android SDK from Option 2. Otherwise install it with `sudo apt install adb`.
 
+## TypeScript check
+
+```sh
+pnpm check
+```
+
+The app source uses `.ts` and `.tsx`.
+
 ## Code structure
 
 ```text
@@ -136,7 +144,7 @@ src/utils/  Shared utilities and logging
 
 Authentication and session restoration are handled through `AuthProvider`.
 
-API access goes through the shared request client in `src/api/client.js`.
+API access goes through the shared request client in `src/api/client.ts`.
 
 JWTs are stored with Expo SecureStore.
 
