@@ -27,7 +27,7 @@ pnpm dev
 
 ## Vercel
 
-This Express API deploys to Vercel with zero configuration. Vercel detects `src/server.js` and runs the Express app as a Vercel Function.
+This Express API deploys to Vercel with zero configuration. The Vercel entrypoint is `src/server.ts`.
 
 Add these environment variables in Vercel Project Settings → Environment Variables:
 
@@ -137,7 +137,16 @@ Authorization and cookies are redacted from logs.
 
 Neon PostgreSQL stores application data.
 
-`src/db/seed.js` seeds 30 task records across six categories.
+`src/db/seed.ts` seeds 30 task records across six categories.
+
+## Checks and build
+
+```sh
+pnpm check
+pnpm build
+```
+
+`pnpm check` validates the TypeScript runtime import contract before running the TypeScript compiler. `pnpm build` emits compiled JavaScript to `dist/` and copies the database schema alongside it.
 
 ## Tests
 
