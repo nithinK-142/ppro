@@ -1,8 +1,8 @@
-const express = require('express');
-const { register, verifyEmail, resendVerification, login } = require('../controllers/auth');
-const validate = require('../middleware/validate');
-const { authIpLimiter, authAccountLimiter } = require('../middleware/rate-limit');
-const { registerSchema, verifySchema, loginSchema } = require('../validation/auth');
+import express from 'express';
+import { register, verifyEmail, resendVerification, login } from '../controllers/auth.ts';
+import validate from '../middleware/validate.ts';
+import { authIpLimiter, authAccountLimiter } from '../middleware/rate-limit.ts';
+import { registerSchema, verifySchema, loginSchema } from '../validation/auth.ts';
 
 const router = express.Router();
 router.use(authIpLimiter, authAccountLimiter);
@@ -11,4 +11,4 @@ router.post('/verify-email', validate({ body: verifySchema }), verifyEmail);
 router.post('/resend-verification', validate({ body: verifySchema.pick({ email: true }) }), resendVerification);
 router.post('/login', validate({ body: loginSchema }), login);
 
-module.exports = router;
+export default router;

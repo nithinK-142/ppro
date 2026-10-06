@@ -1,27 +1,27 @@
-const { createHmac, randomInt, timingSafeEqual } = require('node:crypto');
-const env = require('../config/env');
+import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
+import env from '../config/env.ts';
 
 function generateOtp() {
   return String(randomInt(0, 1_000_000)).padStart(6, '0');
 }
 
-function hashOtp(code) {
+function hashOtp(code: string) {
   return createHmac('sha256', env.OTP_SECRET).update(code).digest('hex');
 }
 
-function otpMatches(code, storedHash) {
+function otpMatches(code: string, storedHash: string) {
   const actual = Buffer.from(hashOtp(code), 'hex');
   const expected = Buffer.from(storedHash, 'hex');
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-function otpExpired(expiresAt, now = new Date()) {
+function otpExpired(expiresAt: string | Date, now = new Date()) {
   return new Date(expiresAt).getTime() <= now.getTime();
 }
 
-function resendAvailable(sentAt, now = new Date()) {
+function resendAvailable(sentAt: string | Date, now = new Date()) {
   const elapsed = Math.floor((now.getTime() - new Date(sentAt).getTime()) / 1000);
   return Math.max(0, env.OTP_RESEND_SECONDS - elapsed);
 }
 
-module.exports = { generateOtp, hashOtp, otpMatches, otpExpired, resendAvailable };
+export { generateOtp, hashOtp, otpMatches, otpExpired, resendAvailable };

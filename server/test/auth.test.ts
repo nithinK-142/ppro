@@ -1,9 +1,9 @@
-require('./setup');
-
-const request = require('supertest');
-const app = require('../src/app');
-const { db } = require('../src/db');
-const { generateOtp, hashOtp } = require('../src/utils/otp');
+import './setup.ts';
+import request from 'supertest';
+import app from '../src/app.ts';
+import { db } from '../src/db/index.ts';
+import { generateOtp, hashOtp } from '../src/utils/otp.ts';
+import type { QueryResultRow } from '@neondatabase/serverless';
 
 beforeEach(async () => {
   await db.run('DELETE FROM user_tasks');
@@ -29,7 +29,7 @@ describe('authentication rules', () => {
   });
 
   it('blocks the fifth wrong OTP attempt', async () => {
-    const result = await db.get('INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id', ['otp@example.com', 'hash']);
+    const result = await db.get<QueryResultRow & { id: number }>('INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id', ['otp@example.com', 'hash']);
     const userId = result.id;
     await db.run('INSERT INTO email_otps (user_id, code_hash, expires_at, attempts, sent_at) VALUES ($1, $2, $3, 0, $4)', [
       userId,
@@ -46,7 +46,8 @@ describe('authentication rules', () => {
       expect(response.body.error.code).toBe('INVALID_OTP');
     }
 
-    const stored = await db.get('SELECT attempts FROM email_otps WHERE user_id = $1', [userId]);
+    const stored = await db.get<QueryResultRow & { attempts: number }>('SELECT attempts FROM email_otps WHERE user_id = $1', [userId]);
+    if (!stored) throw new Error('OTP record was not found');
     expect(stored.attempts).toBe(5);
   });
 });

@@ -1,4 +1,4 @@
-const { generateOtp, hashOtp, otpExpired, resendAvailable } = require('../src/utils/otp');
+import { generateOtp, hashOtp, otpExpired, resendAvailable } from '../src/utils/otp.ts';
 
 describe('OTP rules', () => {
   it('generates exactly six digits', () => {

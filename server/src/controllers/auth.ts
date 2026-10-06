@@ -1,13 +1,28 @@
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const { db, transaction } = require('../db');
-const env = require('../config/env');
-const AppError = require('../errors/app-error');
-const { generateOtp, hashOtp, otpMatches, otpExpired, resendAvailable } = require('../utils/otp');
-const { sendOtp } = require('../utils/mailer');
-const { waitUntil } = require('@vercel/functions');
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { waitUntil } from '@vercel/functions';
+import type { RequestHandler } from 'express';
+import type { z } from 'zod';
+import type { ParamsDictionary } from 'express-serve-static-core';
+import { db, transaction } from '../db/index.ts';
+import type { OtpRow, ProfileRow, ResendOtpRow, TaskRow, UserAuthRow, UserExistsRow, UserVerificationRow } from '../types/database.ts';
+import type { DataResponse, LoginData, RegisterData, ResendData, VerificationData } from '../types/api.ts';
+import env from '../config/env.ts';
+import AppError from '../errors/app-error.ts';
+import { generateOtp, hashOtp, otpMatches, otpExpired, resendAvailable } from '../utils/otp.ts';
+import { sendOtp } from '../utils/mailer.ts';
+import { loginSchema, registerSchema, verifySchema } from '../validation/auth.ts';
 
-function createToken(userId) {
+type RegisterInput = z.infer<typeof registerSchema>;
+type VerifyInput = z.infer<typeof verifySchema>;
+type LoginInput = z.infer<typeof loginSchema>;
+
+type RegisterHandler = RequestHandler<ParamsDictionary, DataResponse<RegisterData>, RegisterInput>;
+type VerificationHandler = RequestHandler<ParamsDictionary, DataResponse<VerificationData>, VerifyInput>;
+type ResendHandler = RequestHandler<ParamsDictionary, DataResponse<ResendData | VerificationData>, Pick<VerifyInput, 'email'>>;
+type LoginHandler = RequestHandler<ParamsDictionary, DataResponse<LoginData>, LoginInput>;
+
+function createToken(userId: number) {
   return jwt.sign({ sub: userId }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN });
 }
 
@@ -17,9 +32,9 @@ function otpWindow() {
   return { sentAt, expiresAt };
 }
 
-async function register(req, res) {
+const register: RegisterHandler = async (req, res) => {
   const { email, password } = req.body;
-  const existing = await db.get('SELECT id, email_verified_at FROM users WHERE email = $1', [email]);
+  const existing = await db.get<UserExistsRow>('SELECT id, email_verified_at FROM users WHERE email = $1', [email]);
 
   if (existing) {
     throw new AppError(409, 'EMAIL_EXISTS', existing.email_verified_at ? 'An account already exists for this email' : 'An account is already registered. Verify the email or request a new code.');
@@ -30,10 +45,12 @@ async function register(req, res) {
   const { sentAt, expiresAt } = otpWindow();
 
   const userId = await transaction(async (tx) => {
-    const result = await tx.get(
+    const result = await tx.get<{ id: number }>(
       'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id',
       [email, passwordHash]
     );
+    if (!result) throw new AppError(500, 'INTERNAL_ERROR', 'Failed to create account');
+
     await tx.run(
       'INSERT INTO email_otps (user_id, code_hash, expires_at, attempts, sent_at) VALUES ($1, $2, $3, 0, $4)',
       [result.id, hashOtp(code), expiresAt.toISOString(), sentAt.toISOString()]
@@ -48,25 +65,24 @@ async function register(req, res) {
       req.log.info({ event: 'auth.otp_sent', userId }, 'verification code sent');
     })
     .catch((err) => {
-      req.log.error({
-        err,
-        event: 'auth.otp_send_failed',
-        userId
-      }, 'failed to send verification code');
+      req.log.error({ err, event: 'auth.otp_send_failed', userId }, 'failed to send verification code');
     }));
 
-  return res.status(201).json({
+  res.status(201).json({
     data: { userId, email, verificationRequired: true }
   });
-}
+};
 
-async function verifyEmail(req, res) {
+const verifyEmail: VerificationHandler = async (req, res) => {
   const { email, otp } = req.body;
-  const user = await db.get('SELECT id, email_verified_at FROM users WHERE email = $1', [email]);
+  const user = await db.get<UserVerificationRow>('SELECT id, email_verified_at FROM users WHERE email = $1', [email]);
   if (!user) throw new AppError(400, 'INVALID_OTP', 'The verification code is invalid or expired');
-  if (user.email_verified_at) return res.json({ data: { verified: true } });
+  if (user.email_verified_at) {
+    res.json({ data: { verified: true } });
+    return;
+  }
 
-  const record = await db.get('SELECT code_hash, expires_at, attempts FROM email_otps WHERE user_id = $1', [user.id]);
+  const record = await db.get<OtpRow>('SELECT code_hash, expires_at, attempts FROM email_otps WHERE user_id = $1', [user.id]);
   if (!record || record.attempts >= env.OTP_MAX_ATTEMPTS || otpExpired(record.expires_at)) {
     throw new AppError(400, 'INVALID_OTP', 'The verification code is invalid or expired');
   }
@@ -83,16 +99,19 @@ async function verifyEmail(req, res) {
   });
 
   req.log.info({ event: 'auth.email_verified', userId: user.id }, 'email verified');
-  return res.json({ data: { verified: true } });
-}
+  res.json({ data: { verified: true } });
+};
 
-async function resendVerification(req, res) {
+const resendVerification: ResendHandler = async (req, res) => {
   const { email } = req.body;
-  const user = await db.get('SELECT id, email_verified_at FROM users WHERE email = $1', [email]);
+  const user = await db.get<UserVerificationRow>('SELECT id, email_verified_at FROM users WHERE email = $1', [email]);
   if (!user) throw new AppError(404, 'EMAIL_NOT_FOUND', 'No account exists for this email');
-  if (user.email_verified_at) return res.json({ data: { verified: true } });
+  if (user.email_verified_at) {
+    res.json({ data: { verified: true } });
+    return;
+  }
 
-  const current = await db.get('SELECT sent_at FROM email_otps WHERE user_id = $1', [user.id]);
+  const current = await db.get<ResendOtpRow>('SELECT sent_at FROM email_otps WHERE user_id = $1', [user.id]);
   const wait = current ? resendAvailable(current.sent_at) : 0;
   if (wait > 0) throw new AppError(429, 'OTP_COOLDOWN', `Try again in ${wait} seconds`, { retryAfterSeconds: wait });
 
@@ -108,19 +127,15 @@ async function resendVerification(req, res) {
       req.log.info({ event: 'auth.otp_resent', userId: user.id }, 'verification code sent');
     })
     .catch((err) => {
-      req.log.error({
-        err,
-        event: 'auth.otp_send_failed',
-        userId: user.id
-      }, 'failed to send verification code');
+      req.log.error({ err, event: 'auth.otp_send_failed', userId: user.id }, 'failed to send verification code');
     }));
 
-  return res.json({ data: { sent: true } });
-}
+  res.json({ data: { sent: true } });
+};
 
-async function login(req, res) {
+const login: LoginHandler = async (req, res) => {
   const { email, password } = req.body;
-  const user = await db.get('SELECT id, password_hash, email_verified_at FROM users WHERE email = $1', [email]);
+  const user = await db.get<UserAuthRow>('SELECT id, email, password_hash, email_verified_at FROM users WHERE email = $1', [email]);
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
     throw new AppError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect');
   }
@@ -129,13 +144,13 @@ async function login(req, res) {
   }
 
   const [profile, selectedTasks] = await Promise.all([
-    db.get('SELECT name, mobile, address, business_name AS "businessName", updated_at FROM profiles WHERE user_id = $1', [user.id]),
-    db.all(`SELECT t.id, t.name, t.category, t.description
+    db.get<ProfileRow>('SELECT name, mobile, address, business_name AS "businessName", updated_at FROM profiles WHERE user_id = $1', [user.id]),
+    db.all<TaskRow>(`SELECT t.id, t.name, t.category, t.description
       FROM user_tasks ut JOIN tasks t ON t.id = ut.task_id
       WHERE ut.user_id = $1 ORDER BY t.category, t.name`, [user.id])
   ]);
 
-  return res.json({
+  res.json({
     data: {
       token: createToken(user.id),
       user: { id: user.id, email: user.email, emailVerifiedAt: user.email_verified_at },
@@ -144,6 +159,6 @@ async function login(req, res) {
       setupComplete: Boolean(profile && selectedTasks.length)
     }
   });
-}
+};
 
-module.exports = { register, verifyEmail, resendVerification, login };
+export { register, verifyEmail, resendVerification, login };
