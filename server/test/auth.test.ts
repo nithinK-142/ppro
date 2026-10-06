@@ -1,4 +1,3 @@
-import './setup.ts';
 import request from 'supertest';
 import app from '../src/app.ts';
 import { db } from '../src/db/index.ts';
