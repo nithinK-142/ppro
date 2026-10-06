@@ -1,6 +1,5 @@
-require('dotenv').config();
-
-const { z } = require('zod');
+import 'dotenv/config';
+import { z } from 'zod';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -42,4 +41,4 @@ const env = {
   TRUST_PROXY: parsed.data.TRUST_PROXY === 'true'
 };
 
-module.exports = env;
+export default env;

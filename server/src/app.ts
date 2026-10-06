@@ -1,17 +1,17 @@
-const express = require('express');
-const helmet = require('helmet');
-const cors = require('cors');
-const env = require('./config/env');
-const requestId = require('./middleware/request-id');
-const httpLogger = require('./middleware/http-logger');
-const { apiLimiter } = require('./middleware/rate-limit');
-const errorHandler = require('./middleware/error-handler');
-const AppError = require('./errors/app-error');
-const healthRoutes = require('./routes/health');
-const authRoutes = require('./routes/auth');
-const profileRoutes = require('./routes/profile');
-const taskRoutes = require('./routes/tasks');
-const { seedTasks } = require('./db/seed');
+import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import env from './config/env.ts';
+import requestId from './middleware/request-id.ts';
+import httpLogger from './middleware/http-logger.ts';
+import { apiLimiter } from './middleware/rate-limit.ts';
+import errorHandler from './middleware/error-handler.ts';
+import AppError from './errors/app-error.ts';
+import healthRoutes from './routes/health.ts';
+import authRoutes from './routes/auth.ts';
+import profileRoutes from './routes/profile.ts';
+import taskRoutes from './routes/tasks.ts';
+import { seedTasks } from './db/seed.ts';
 
 const app = express();
 app.disable('x-powered-by');
@@ -40,4 +40,4 @@ app.use('/api/v1/tasks', taskRoutes);
 app.use((_req, _res, next) => next(new AppError(404, 'NOT_FOUND', 'Route not found')));
 app.use(errorHandler);
 
-module.exports = app;
+export default app;

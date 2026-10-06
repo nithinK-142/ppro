@@ -1,5 +1,5 @@
-const express = require('express');
-const { pingDatabase } = require('../db');
+import express from 'express';
+import { pingDatabase } from '../db/index.ts';
 
 const router = express.Router();
 
@@ -12,4 +12,4 @@ router.get('/ready', async (_req, res) => {
   res.status(ready ? 200 : 503).json({ status: ready ? 'ok' : 'not_ready' });
 });
 
-module.exports = router;
+export default router;

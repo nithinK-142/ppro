@@ -1,4 +1,4 @@
-const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -25,4 +25,4 @@ const authAccountLimiter = rateLimit({
   legacyHeaders: false
 });
 
-module.exports = { apiLimiter, authIpLimiter, authAccountLimiter };
+export { apiLimiter, authIpLimiter, authAccountLimiter };

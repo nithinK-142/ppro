@@ -1,4 +1,4 @@
-const { z } = require('zod');
+import { z } from 'zod';
 
 const categories = [
   'Errands & Daily Tasks',
@@ -7,7 +7,7 @@ const categories = [
   'Health & Medical',
   'Senior Care',
   'Events & Management'
-];
+] as const;
 
 const taskListQuerySchema = z.object({
   search: z.string().trim().max(60).optional().default(''),
@@ -20,4 +20,4 @@ const selectionSchema = z.object({
   taskIds: z.array(z.number().int().positive()).min(1).max(30)
 });
 
-module.exports = { categories, taskListQuerySchema, selectionSchema };
+export { categories, taskListQuerySchema, selectionSchema };

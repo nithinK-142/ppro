@@ -1,4 +1,4 @@
-const { z } = require('zod');
+import { z } from 'zod';
 
 const profileSchema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -7,4 +7,4 @@ const profileSchema = z.object({
   businessName: z.string().trim().max(120).optional().or(z.literal(''))
 });
 
-module.exports = { profileSchema };
+export { profileSchema };
