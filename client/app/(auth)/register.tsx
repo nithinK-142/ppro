@@ -12,12 +12,12 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
-    const next = {};
+    const next: Record<string, string> = {};
     if (!validateEmail(email)) next.email = 'Enter a valid email';
     if (!validatePassword(password)) next.password = 'Use at least 8 characters';
     if (password !== confirmPassword) next.confirmPassword = 'Passwords do not match';
@@ -29,8 +29,8 @@ export default function Register() {
     try {
       await registerRequest({ email: email.trim().toLowerCase(), password, confirmPassword });
       router.push({ pathname: '/(auth)/verify', params: { email: email.trim().toLowerCase() } });
-    } catch (error) {
-      setMessage(error.message);
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'Unable to create account.');
     } finally {
       setLoading(false);
     }

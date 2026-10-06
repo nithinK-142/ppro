@@ -8,6 +8,7 @@ import { Screen } from '../../src/components/Screen';
 import { StateCard } from '../../src/components/StateCard';
 import { useAuth } from '../../src/state/auth';
 import { colors, radius, spacing } from '../../src/theme';
+import type { Task } from '../../src/types';
 
 const HOW_IT_WORKS = [
   ['Tell us', 'Share what needs handling.'],
@@ -21,8 +22,8 @@ export default function Home() {
   const tasks = selectedTasks;
   const [menuVisible, setMenuVisible] = useState(false);
 
-  const groupedTasks = useMemo(() => {
-    const groups = new Map();
+  const groupedTasks = useMemo<[string, Task[]][]>(() => {
+    const groups = new Map<string, Task[]>();
     for (const task of tasks) {
       if (!groups.has(task.category)) groups.set(task.category, []);
       groups.get(task.category).push(task);

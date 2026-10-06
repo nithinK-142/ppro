@@ -1,18 +1,32 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { getMe } from '../api/profile';
 import { ApiError } from '../api/client';
 import { login as loginRequest } from '../api/auth';
 import { clearToken, getToken, setToken } from '../storage/token';
+import type { AuthStatus, Profile, SessionData, Task, User } from '../types';
 
-const AuthContext = createContext(null);
+type AuthContextValue = {
+  status: AuthStatus;
+  user: User | null;
+  profile: Profile | null;
+  selectedTasks: Task[];
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  refresh: () => Promise<void>;
+  updateProfile: (nextProfile: Profile) => void;
+  updateTasks: (tasks: Task[]) => void;
+};
 
-export function AuthProvider({ children }) {
-  const [status, setStatus] = useState('loading');
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [selectedTasks, setSelectedTasks] = useState([]);
+const AuthContext = createContext<AuthContextValue | null>(null);
 
-  const applySession = useCallback((data) => {
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [status, setStatus] = useState<AuthStatus>('loading');
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [selectedTasks, setSelectedTasks] = useState<Task[]>([]);
+
+  const applySession = useCallback((data: Pick<SessionData, 'user' | 'profile' | 'selectedTasks'>) => {
     setUser(data.user);
     setProfile(data.profile);
     setSelectedTasks(data.selectedTasks || []);
@@ -28,7 +42,7 @@ export function AuthProvider({ children }) {
 
     try {
       applySession(await getMe());
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         await clearToken();
         setUser(null);
@@ -43,12 +57,12 @@ export function AuthProvider({ children }) {
   }, [applySession]);
 
   useEffect(() => {
-    refresh();
+    void refresh();
   }, [refresh]);
 
-  const signIn = useCallback(async (email, password) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     const data = await loginRequest({ email, password });
-    await setToken(data.token);
+    if (data.token) await setToken(data.token);
 
     if (data.user) {
       applySession(data);
@@ -66,10 +80,10 @@ export function AuthProvider({ children }) {
     setStatus('signed_out');
   }, []);
 
-  const updateProfile = useCallback((nextProfile) => setProfile(nextProfile), []);
-  const updateTasks = useCallback((tasks) => setSelectedTasks(tasks), []);
+  const updateProfile = useCallback((nextProfile: Profile) => setProfile(nextProfile), []);
+  const updateTasks = useCallback((tasks: Task[]) => setSelectedTasks(tasks), []);
 
-  const value = useMemo(() => ({
+  const value = useMemo<AuthContextValue>(() => ({
     status,
     user,
     profile,
@@ -84,6 +98,8 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
-  return useContext(AuthContext);
+export function useAuth(): AuthContextValue {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  return context;
 }

@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { resendVerification, verifyEmail } from '../../src/api/auth';
+import { ApiError } from '../../src/api/client';
 import { Button } from '../../src/components/Button';
 import { Screen } from '../../src/components/Screen';
 import { colors, radius, spacing } from '../../src/theme';
@@ -30,8 +31,8 @@ export default function Verify() {
     try {
       await verifyEmail({ email, otp });
       router.replace({ pathname: '/(auth)/login', params: { verified: '1' } });
-    } catch (error) {
-      setMessage(error.message);
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'Unable to verify email.');
     } finally {
       setLoading(false);
     }
@@ -44,11 +45,12 @@ export default function Verify() {
       await resendVerification(email);
       setSeconds(30);
       setOtp('');
-    } catch (error) {
-      if (error.code === 'OTP_COOLDOWN' && error.details?.retryAfterSeconds) {
-        setSeconds(error.details.retryAfterSeconds);
+    } catch (error: unknown) {
+      const retryAfterSeconds = error instanceof ApiError ? error.details.retryAfterSeconds : undefined;
+      if (error instanceof ApiError && error.code === 'OTP_COOLDOWN' && typeof retryAfterSeconds === 'number') {
+        setSeconds(retryAfterSeconds);
       }
-      setMessage(error.message);
+      setMessage(error instanceof Error ? error.message : 'Unable to resend verification code.');
     } finally {
       setResending(false);
     }

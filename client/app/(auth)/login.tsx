@@ -1,6 +1,7 @@
 import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { ApiError } from '../../src/api/client';
 import { Button } from '../../src/components/Button';
 import { Field } from '../../src/components/Field';
 import { Screen } from '../../src/components/Screen';
@@ -13,12 +14,12 @@ export default function Login() {
   const params = useLocalSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState(params.verified === '1' ? 'Email verified. Sign in to continue.' : '');
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
-    const next = {};
+    const next: Record<string, string> = {};
     if (!validateEmail(email)) next.email = 'Enter a valid email';
     if (!validatePassword(password)) next.password = 'Use at least 8 characters';
     setErrors(next);
@@ -29,11 +30,11 @@ export default function Login() {
     try {
       await signIn(email.trim().toLowerCase(), password);
       router.replace('/');
-    } catch (error) {
-      if (error.code === 'EMAIL_NOT_VERIFIED') {
+    } catch (error: unknown) {
+      if (error instanceof ApiError && error.code === 'EMAIL_NOT_VERIFIED') {
         router.push({ pathname: '/(auth)/verify', params: { email: email.trim().toLowerCase() } });
       } else {
-        setMessage(error.message);
+        setMessage(error instanceof Error ? error.message : 'Unable to sign in.');
       }
     } finally {
       setLoading(false);

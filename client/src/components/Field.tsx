@@ -1,7 +1,13 @@
 import { StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, radius, spacing } from '../theme';
+import type { TextInputProps } from 'react-native';
+import { colors, radius } from '../theme';
 
-export function Field({ label, error, ...props }) {
+type FieldProps = TextInputProps & {
+  label: string;
+  error?: string;
+};
+
+export function Field({ label, error, ...props }: FieldProps) {
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>{label}</Text>

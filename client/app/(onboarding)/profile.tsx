@@ -15,12 +15,12 @@ export default function Profile() {
   const [mobile, setMobile] = useState(profile?.mobile || '+91');
   const [address, setAddress] = useState(profile?.address || '');
   const [businessName, setBusinessName] = useState(profile?.businessName || '');
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
-    const next = {};
+    const next: Record<string, string> = {};
     if (name.trim().length < 2) next.name = 'Enter your name';
     if (!validateMobile(mobile)) next.mobile = 'Use +91 followed by 10 digits';
     if (address.trim().length < 5) next.address = 'Add your address';
@@ -33,8 +33,8 @@ export default function Profile() {
       const saved = await saveProfile({ name: name.trim(), mobile: mobile.trim(), address: address.trim(), businessName: businessName.trim() });
       updateProfile(saved);
       router.replace('/(app)/tasks');
-    } catch (error) {
-      setMessage(error.message);
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'Unable to save profile.');
     } finally {
       setLoading(false);
     }
