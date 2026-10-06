@@ -13,7 +13,11 @@ if (!apiUrl) {
 }
 
 export class ApiError extends Error {
-  constructor(message, code, status, details) {
+  code: string;
+  status: number;
+  details: Record<string, unknown>;
+
+  constructor(message: string, code: string, status: number, details: Record<string, unknown> = {}) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
@@ -22,7 +26,17 @@ export class ApiError extends Error {
   }
 }
 
-export async function request(path, options = {}) {
+type RequestOptions = RequestInit;
+
+type ErrorBody = {
+  error?: {
+    code?: string;
+    message?: string;
+    details?: Record<string, unknown>;
+  };
+};
+
+export async function request<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = await getToken();
   const requestId = createRequestId();
   const method = String(options.method || 'GET').toUpperCase();
@@ -33,7 +47,7 @@ export async function request(path, options = {}) {
     'Content-Type': 'application/json',
     'X-Request-Id': requestId,
     ...(options.headers || {})
-  };
+  } as Record<string, string>;
 
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -42,17 +56,18 @@ export async function request(path, options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  let response;
+  let response: Response;
   try {
     response = await fetch(url, { ...options, headers, signal: controller.signal });
-  } catch (error) {
-    const timedOut = error?.name === 'AbortError';
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    const timedOut = err.name === 'AbortError';
     logger.error(timedOut ? 'api.timeout' : 'api.network_error', {
       method,
       path,
       requestId,
       durationMs: Date.now() - startedAt,
-      message: error?.message
+      message: err.message
     });
     throw new ApiError(
       timedOut ? 'Request timed out. Check your connection and try again.' : 'Network error. Check your connection and try again.',
@@ -65,7 +80,7 @@ export async function request(path, options = {}) {
   }
 
   const responseRequestId = response.headers.get('X-Request-Id') || requestId;
-  const body = await response.json().catch(() => null);
+  const body = await response.json().catch(() => null) as { data?: T } & ErrorBody | null;
   const durationMs = Date.now() - startedAt;
 
   if (!response.ok) {
@@ -94,5 +109,5 @@ export async function request(path, options = {}) {
     durationMs
   });
 
-  return body?.data;
+  return body?.data as T;
 }

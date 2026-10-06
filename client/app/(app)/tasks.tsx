@@ -7,13 +7,14 @@ import { Screen } from '../../src/components/Screen';
 import { StateCard } from '../../src/components/StateCard';
 import { useAuth } from '../../src/state/auth';
 import { colors, radius, spacing } from '../../src/theme';
+import type { Task } from '../../src/types';
 
 const categories = ['All', 'Errands & Daily Tasks', 'Home Services', 'Travel & Tourism', 'Health & Medical', 'Senior Care', 'Events & Management'];
 
 export default function Tasks() {
   const { selectedTasks, updateTasks } = useAuth();
-  const [tasks, setTasks] = useState([]);
-  const [selected, setSelected] = useState(new Set(selectedTasks.map((task) => task.id)));
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set(selectedTasks.map((task) => task.id)));
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [loading, setLoading] = useState(true);
@@ -27,8 +28,8 @@ export default function Tasks() {
     try {
       const result = await getTasks({ limit: 50 });
       setTasks(result || []);
-    } catch (requestError) {
-      setError(requestError.message);
+    } catch (requestError: unknown) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to load tasks.')
     } finally {
       setLoading(false);
     }
@@ -50,18 +51,19 @@ export default function Tasks() {
 
   const selectedItems = useMemo(() => [...selected]
     .map((id) => tasks.find((task) => task.id === id) || selectedTasks.find((task) => task.id === id))
-    .filter(Boolean), [tasks, selected, selectedTasks]);
+    .filter((task): task is Task => Boolean(task)), [tasks, selected, selectedTasks]);
 
   const groupedTasks = useMemo(() => {
-    const groups = new Map();
+    const groups = new Map<string, Task[]>();
     for (const task of visibleTasks) {
-      if (!groups.has(task.category)) groups.set(task.category, []);
-      groups.get(task.category).push(task);
+      const group = groups.get(task.category);
+      if (group) group.push(task);
+      else groups.set(task.category, [task]);
     }
     return [...groups.entries()];
   }, [visibleTasks]);
 
-  const toggle = (id) => {
+  const toggle = (id: number) => {
     setSelected((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
@@ -78,8 +80,8 @@ export default function Tasks() {
       const saved = await saveSelectedTasks([...selected]);
       updateTasks(saved || []);
       router.replace('/(app)/home');
-    } catch (requestError) {
-      setError(requestError.message);
+    } catch (requestError: unknown) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to save selected tasks.')
     } finally {
       setSaving(false);
     }

@@ -2,11 +2,11 @@ import * as SecureStore from 'expo-secure-store';
 
 const TOKEN_KEY = 'padosipro.auth.token';
 
-let cachedToken = null;
+let cachedToken: string | null = null;
 let hydrated = false;
-let hydrationPromise = null;
+let hydrationPromise: Promise<string | null> | null = null;
 
-export async function getToken() {
+export async function getToken(): Promise<string | null> {
   if (hydrated) return cachedToken;
 
   if (!hydrationPromise) {
@@ -25,13 +25,13 @@ export async function getToken() {
   return hydrationPromise;
 }
 
-export async function setToken(token) {
+export async function setToken(token: string): Promise<void> {
   cachedToken = token;
   hydrated = true;
   await SecureStore.setItemAsync(TOKEN_KEY, token);
 }
 
-export async function clearToken() {
+export async function clearToken(): Promise<void> {
   cachedToken = null;
   hydrated = true;
   hydrationPromise = null;

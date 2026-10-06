@@ -5,7 +5,7 @@ import { Screen } from '../../src/components/Screen';
 import { useAuth } from '../../src/state/auth';
 import { colors, radius, spacing } from '../../src/theme';
 
-function InfoRow({ label, value }) {
+function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>

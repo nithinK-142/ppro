@@ -1,7 +1,18 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { colors, radius, spacing } from '../theme';
 
-export function Button({ label, onPress, loading = false, disabled = false, secondary = false, testID }) {
+type ButtonProps = {
+  label: string;
+  onPress: () => void;
+  loading?: boolean;
+  disabled?: boolean;
+  secondary?: boolean;
+  testID?: string;
+  style?: StyleProp<ViewStyle>;
+};
+
+export function Button({ label, onPress, loading = false, disabled = false, secondary = false, testID }: ButtonProps) {
   return (
     <Pressable
       onPress={onPress}
