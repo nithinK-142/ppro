@@ -34,22 +34,17 @@ const tasks = [
   ['Events & Management', 'Guest travel coordination', 'Coordinate stays and local transport for guests.']
 ] as const;
 
-let seedPromise: Promise<unknown> | undefined;
-
 async function seedTasks() {
-  if (!seedPromise) {
-    seedPromise = transaction(async (tx) => {
-      for (const [category, name, description] of tasks) {
-        await tx.run(
-          'INSERT INTO tasks (category, name, description) VALUES ($1, $2, $3) ON CONFLICT(name) DO NOTHING',
-          [category, name, description]
-        );
-      }
-      logger.info({ count: tasks.length }, 'catalogue seeded');
-    });
-  }
+  await transaction(async (query) => {
+    for (const [category, name, description] of tasks) {
+      await query(
+        'INSERT INTO tasks (category, name, description) VALUES ($1, $2, $3) ON CONFLICT(name) DO NOTHING',
+        [category, name, description]
+      );
+    }
+  });
 
-  return seedPromise;
+  logger.info({ count: tasks.length }, 'catalogue seeded');
 }
 
 export { seedTasks };
