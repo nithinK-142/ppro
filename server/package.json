@@ -5,13 +5,13 @@
   "description": "PadosiPro assignment API",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "node --watch --experimental-strip-types src/server.ts",
+    "build": "tsc && node scripts/copy-schema.mjs",
     "start": "node dist/server.js",
+    "dev": "node --watch --experimental-strip-types src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "node scripts/check-ts-runtime.mjs && tsc --noEmit",
-    "generate:code": "openssl rand -hex 16",
-    "build": "tsc && node scripts/copy-schema.mjs"
+    "generate:code": "openssl rand -hex 16"
   },
   "engines": {
     "node": ">=22.13.0"
