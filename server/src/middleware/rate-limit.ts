@@ -19,7 +19,8 @@ const authAccountLimiter = rateLimit({
   limit: 15,
   keyGenerator: (req) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
-    return email ? `email:${email}` : `ip:${ipKeyGenerator(req.ip)}`;
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+    return email ? `email:${email}` : `ip:${ipKeyGenerator(ip)}`;
   },
   standardHeaders: 'draft-8',
   legacyHeaders: false

@@ -1,5 +1,4 @@
 import type { RequestHandler } from 'express';
-import type { ParamsDictionary } from 'express-serve-static-core';
 import type { z } from 'zod';
 import { db, transaction } from '../db/index.ts';
 import type { DataResponse, Pagination, TaskListData } from '../types/api.ts';
@@ -7,20 +6,34 @@ import type { TaskIdRow, TaskRow, TaskWithTotalRow } from '../types/database.ts'
 import AppError from '../errors/app-error.ts';
 import { selectionSchema, taskListQuerySchema } from '../validation/tasks.ts';
 
-type TaskListQuery = z.infer<typeof taskListQuerySchema>;
 type SelectionInput = z.infer<typeof selectionSchema>;
 
-type TaskListHandler = RequestHandler<ParamsDictionary, TaskListData, unknown, TaskListQuery>;
-type SelectedTasksHandler = RequestHandler<ParamsDictionary, DataResponse<TaskRow[]>>;
-type SelectionHandler = RequestHandler<ParamsDictionary, DataResponse<TaskRow[]>, SelectionInput>;
+type RouteParams = Record<string, string>;
+
+type TaskListHandler = RequestHandler<RouteParams, TaskListData>;
+type SelectedTasksHandler = RequestHandler<RouteParams, DataResponse<TaskRow[]>>;
+type SelectionHandler = RequestHandler<RouteParams, DataResponse<TaskRow[]>, SelectionInput>;
 
 function requireUserId(userId: number | undefined): number {
   if (!userId) throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
   return userId;
 }
 
+async function getSelectedTasks(userId: number) {
+  return db.all<TaskRow>(
+    `
+      SELECT t.id, t.name, t.category, t.description
+      FROM user_tasks ut
+      JOIN tasks t ON t.id = ut.task_id
+      WHERE ut.user_id = $1
+      ORDER BY t.category, t.name
+    `,
+    [userId]
+  );
+}
+
 const listTasks: TaskListHandler = async (req, res) => {
-  const { search, category, page, limit } = req.query;
+  const { search, category, page, limit } = taskListQuerySchema.parse(req.query);
   const filters: string[] = [];
   const values: Array<string | number> = [];
 
@@ -52,9 +65,9 @@ const listTasks: TaskListHandler = async (req, res) => {
 
 const listSelectedTasks: SelectedTasksHandler = async (req, res) => {
   const userId = requireUserId(req.userId);
-  const tasks = await db.all<TaskRow>(`SELECT t.id, t.name, t.category, t.description
-    FROM user_tasks ut JOIN tasks t ON t.id = ut.task_id
-    WHERE ut.user_id = $1 ORDER BY t.category, t.name`, [userId]);
+
+  const tasks = await getSelectedTasks(userId);
+
   res.json({ data: tasks });
 };
 
@@ -63,7 +76,8 @@ const saveSelectedTasks: SelectionHandler = async (req, res) => {
   const { taskIds } = req.body;
   if (taskIds.length === 0) {
     await db.run('DELETE FROM user_tasks WHERE user_id = $1', [userId]);
-    await listSelectedTasks(req, res);
+    const tasks = await getSelectedTasks(userId);
+    res.json({ data: tasks });
     return;
   }
 
@@ -82,7 +96,8 @@ const saveSelectedTasks: SelectionHandler = async (req, res) => {
     await tx.run(`INSERT INTO user_tasks (user_id, task_id) VALUES ${rowPlaceholders.join(',')}`, values);
   });
 
-  await listSelectedTasks(req, res);
+  const tasks = await getSelectedTasks(userId);
+  res.json({ data: tasks });
 };
 
 export { listTasks, listSelectedTasks, saveSelectedTasks };
