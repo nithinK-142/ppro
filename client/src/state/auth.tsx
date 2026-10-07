@@ -33,6 +33,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('signed_in');
   }
 
+  function clearSession() {
+    setUser(null);
+    setProfile(null);
+    setSelectedTasks([]);
+    setStatus('signed_out');
+  }
+
   async function refresh() {
     const token = await getToken();
     if (!token) {
@@ -45,10 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: unknown) {
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         await clearToken();
-        setUser(null);
-        setProfile(null);
-        setSelectedTasks([]);
-        setStatus('signed_out');
+        clearSession();
         return;
       }
 
@@ -68,10 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     await clearToken();
-    setUser(null);
-    setProfile(null);
-    setSelectedTasks([]);
-    setStatus('signed_out');
+    clearSession();
   }
 
   function updateProfile(nextProfile: Profile) {

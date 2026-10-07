@@ -8,6 +8,8 @@ import { StateCard } from '../../src/components/StateCard';
 import { useAuth } from '../../src/state/auth';
 import { colors, radius, spacing } from '../../src/theme';
 import type { Task } from '../../src/types';
+import { getErrorMessage } from '../../src/utils/errors';
+import { groupTasksByCategory } from '../../src/utils/tasks';
 
 const categories = ['All', 'Errands & Daily Tasks', 'Home Services', 'Travel & Tourism', 'Health & Medical', 'Senior Care', 'Events & Management'];
 
@@ -28,7 +30,7 @@ export default function Tasks() {
     try {
       setTasks(await getTasks({ limit: 50 }));
     } catch (requestError: unknown) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to load tasks.');
+      setError(getErrorMessage(requestError, 'Unable to load tasks.'));
     } finally {
       setLoading(false);
     }
@@ -50,13 +52,7 @@ export default function Tasks() {
     .map((id) => tasks.find((task) => task.id === id) || selectedTasks.find((task) => task.id === id))
     .filter((task): task is Task => Boolean(task));
 
-  const groups = new Map<string, Task[]>();
-  for (const task of visibleTasks) {
-    const categoryTasks = groups.get(task.category);
-    if (categoryTasks) categoryTasks.push(task);
-    else groups.set(task.category, [task]);
-  }
-  const groupedTasks = [...groups.entries()];
+  const groupedTasks = groupTasksByCategory(visibleTasks);
 
   const toggle = (id: number) => {
     setSelected((current) => {
@@ -76,7 +72,7 @@ export default function Tasks() {
       updateTasks(saved);
       router.replace('/(app)/home');
     } catch (requestError: unknown) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to save selected tasks.')
+      setError(getErrorMessage(requestError, 'Unable to save selected tasks.'))
     } finally {
       setSaving(false);
     }

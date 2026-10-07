@@ -1,12 +1,13 @@
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { register as registerRequest } from '../../src/api/auth';
 import { Button } from '../../src/components/Button';
 import { Field } from '../../src/components/Field';
-import { Screen } from '../../src/components/Screen';
+import { AuthScreen } from '../../src/components/AuthScreen';
 import { colors, spacing } from '../../src/theme';
-import { validateEmail, validatePassword } from '../../src/utils/form';
+import { validateCredentials } from '../../src/utils/form';
+import { getErrorMessage } from '../../src/utils/errors';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -17,28 +18,26 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
-    const next: Record<string, string> = {};
-    if (!validateEmail(email)) next.email = 'Enter a valid email';
-    if (!validatePassword(password)) next.password = 'Use at least 8 characters';
-    if (password !== confirmPassword) next.confirmPassword = 'Passwords do not match';
+    const next = validateCredentials(email, password, confirmPassword);
     setErrors(next);
     setMessage('');
     if (Object.keys(next).length) return;
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     setLoading(true);
     try {
-      await registerRequest({ email: email.trim().toLowerCase(), password, confirmPassword });
-      router.push({ pathname: '/(auth)/verify', params: { email: email.trim().toLowerCase() } });
+      await registerRequest({ email: normalizedEmail, password, confirmPassword });
+      router.push({ pathname: '/(auth)/verify', params: { email: normalizedEmail } });
     } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : 'Unable to create account.');
+      setMessage(getErrorMessage(error, 'Unable to create account.'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <Screen contentStyle={styles.content}>
+    <AuthScreen contentStyle={styles.content}>
         <Text style={styles.eyebrow}>SET UP YOUR PADOSIPRO</Text>
         <Text style={styles.title}>Start with the account. The rest follows.</Text>
         <Text style={styles.copy}>Use an email you can access now. We will send a six-digit verification code.</Text>
@@ -50,8 +49,7 @@ export default function Register() {
           <Button label="Create account" onPress={submit} loading={loading} testID="register-submit" />
           <Text style={styles.bottom}>Already have an account? <Link href="/(auth)/login" style={styles.link}>Sign in</Link></Text>
         </View>
-      </Screen>
-    </KeyboardAvoidingView>
+    </AuthScreen>
   );
 }
 

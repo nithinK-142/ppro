@@ -1,11 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { resendVerification, verifyEmail } from '../../src/api/auth';
 import { ApiError } from '../../src/api/client';
 import { Button } from '../../src/components/Button';
-import { Screen } from '../../src/components/Screen';
+import { AuthScreen } from '../../src/components/AuthScreen';
 import { colors, radius, spacing } from '../../src/theme';
+import { getErrorMessage } from '../../src/utils/errors';
 
 export default function Verify() {
   const params = useLocalSearchParams();
@@ -32,7 +33,7 @@ export default function Verify() {
       await verifyEmail({ email, otp });
       router.replace({ pathname: '/(auth)/login', params: { verified: '1' } });
     } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : 'Unable to verify email.');
+      setMessage(getErrorMessage(error, 'Unable to verify email.'));
     } finally {
       setLoading(false);
     }
@@ -50,15 +51,14 @@ export default function Verify() {
       if (error instanceof ApiError && error.code === 'OTP_COOLDOWN' && typeof retryAfterSeconds === 'number') {
         setSeconds(retryAfterSeconds);
       }
-      setMessage(error instanceof Error ? error.message : 'Unable to resend verification code.');
+      setMessage(getErrorMessage(error, 'Unable to resend verification code.'));
     } finally {
       setResending(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <Screen contentStyle={styles.content}>
+    <AuthScreen contentStyle={styles.content}>
         <Text style={styles.eyebrow}>CHECK YOUR EMAIL</Text>
         <Text style={styles.title}>Six digits. Then you're in.</Text>
         <Text style={styles.copy}>We sent a verification code to <Text style={styles.email}>{email}</Text>. It is valid for 10 minutes.</Text>
@@ -78,8 +78,7 @@ export default function Verify() {
           <Text style={styles.resendText}>{seconds > 0 ? `Resend in ${seconds}s` : 'Did not get it?'}</Text>
           {seconds === 0 ? <Button label="Send again" onPress={resend} loading={resending} secondary /> : null}
         </View>
-      </Screen>
-    </KeyboardAvoidingView>
+    </AuthScreen>
   );
 }
 

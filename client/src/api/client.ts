@@ -109,3 +109,10 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
 
   return body?.data as T;
 }
+
+export function jsonRequest<T>(path: string, method: 'POST' | 'PUT' | 'PATCH', body: unknown) {
+  return request<T>(path, {
+    method,
+    body: JSON.stringify(body)
+  });
+}

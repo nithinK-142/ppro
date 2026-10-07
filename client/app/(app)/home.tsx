@@ -8,7 +8,7 @@ import { Screen } from '../../src/components/Screen';
 import { StateCard } from '../../src/components/StateCard';
 import { useAuth } from '../../src/state/auth';
 import { colors, radius, spacing } from '../../src/theme';
-import type { Task } from '../../src/types';
+import { groupTasksByCategory } from '../../src/utils/tasks';
 
 const HOW_IT_WORKS = [
   ['Tell us', 'Share what needs handling.'],
@@ -22,13 +22,7 @@ export default function Home() {
   const tasks = selectedTasks;
   const [menuVisible, setMenuVisible] = useState(false);
 
-  const groups = new Map<string, Task[]>();
-  for (const task of tasks) {
-    const categoryTasks = groups.get(task.category);
-    if (categoryTasks) categoryTasks.push(task);
-    else groups.set(task.category, [task]);
-  }
-  const groupedTasks = [...groups.entries()];
+  const groupedTasks = groupTasksByCategory(tasks);
 
   const categoryCount = groupedTasks.length;
   const firstName = profile?.name?.trim().split(/\s+/)[0] || 'there';
