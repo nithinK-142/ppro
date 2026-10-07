@@ -37,7 +37,12 @@ const listTasks: TaskListHandler = async (req, res) => {
   const { rows } = await query<TaskWithTotalRow>(`SELECT id, name, category, description, COUNT(*) OVER()::int AS total_count
     FROM tasks ${where} ORDER BY category, name LIMIT $${limitIndex} OFFSET $${offsetIndex}`, [...values, limit, offset]);
 
-  const total = rows[0]?.total_count ?? 0;
+  let total = rows[0]?.total_count ?? 0;
+  if (!rows.length) {
+    const { rows: countRows } = await query<{ total: number }>(`SELECT COUNT(*)::int AS total FROM tasks ${where}`, values);
+    total = countRows[0]?.total ?? 0;
+  }
+
   const tasks = rows.map(({ total_count: _totalCount, ...task }) => task);
   const pagination: Pagination = { page, limit, total, pages: Math.ceil(total / limit) };
 
