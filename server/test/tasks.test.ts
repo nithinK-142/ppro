@@ -101,8 +101,8 @@ describe('tasks API', () => {
       .expect(200);
 
     expect(response.body.data.map((task: { name: string }) => task.name)).toEqual([
-      'AC service visit',
-      'Doctor appointment'
+      'Doctor appointment',
+      'AC service visit'
     ]);
   });
 

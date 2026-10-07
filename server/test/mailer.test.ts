@@ -27,7 +27,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
-  vi.unmock('../src/config/env.ts');
 });
 
 describe('mailer', () => {
