@@ -1,6 +1,6 @@
 import request from 'supertest';
 import app from '../src/app.ts';
-import { db } from '../src/db/index.ts';
+import { db } from '../src/config/db.ts';
 import { generateOtp, hashOtp } from '../src/utils/otp.ts';
 import type { QueryResultRow } from '@neondatabase/serverless';
 

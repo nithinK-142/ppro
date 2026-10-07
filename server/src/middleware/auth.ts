@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import type { RequestHandler } from 'express';
 import env from '../config/env.ts';
-import AppError from '../errors/app-error.ts';
+import AppError from '../utils/app-error.ts';
 
 const authenticate: RequestHandler = (req, _res, next) => {
   const header = req.get('Authorization');

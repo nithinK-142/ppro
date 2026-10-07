@@ -1,5 +1,5 @@
-import { transaction } from './index.ts';
-import logger from '../logging/logger.ts';
+import { transaction } from './db.ts';
+import logger from '../utils/logger.ts';
 
 const tasks = [
   ['Errands & Daily Tasks', 'Courier pickup or drop', 'Collect or deliver a parcel locally.'],
