@@ -1,4 +1,3 @@
-import { cleanup } from '@testing-library/react-native';
 import { afterEach, vi } from 'vitest';
 
 process.env.EXPO_PUBLIC_API_URL = 'http://127.0.0.1:4000';
@@ -35,7 +34,8 @@ export const testRouter = mocks.router;
 export const routeParams = mocks.params;
 export const secureStore = mocks.secureStore;
 
-afterEach(() => {
+afterEach(async () => {
+  const { cleanup } = await import('@testing-library/react-native');
   cleanup();
   mocks.router.push.mockReset();
   mocks.router.replace.mockReset();
