@@ -8,11 +8,11 @@
 
 - Auth state is kept in one context. API requests use one shared client for auth headers and error handling. Tokens are stored in SecureStore.
 
-- The API uses a simple structure. Routes connect to controllers. Validation, auth, rate limits, request IDs, and error handling are handled in middleware. Shared low-level code stays in `utils`.
+- The API uses controllers for request handlers. Routes connect requests to controllers, while validation, auth, rate limits, request IDs, and error handling are handled in middleware. Shared low-level code stays in `utils`.
 
 ## Data and Authentication
 
-- SQLite was used so the backend can run locally without setting up another database.
+- Neon PostgreSQL stores the backend data through the server-side database client.
 
 - The database keeps users, OTPs, profiles, tasks, and task selections in separate tables, with foreign keys and indexes.
 
@@ -71,7 +71,7 @@ The API uses:
 
 `/health/live` checks that the API process is running.
 
-`/health/ready` checks that SQLite is available.
+`/health/ready` checks that the PostgreSQL database is reachable.
 
 SIGINT and SIGTERM shut down the server before closing the database. A shutdown timeout prevents the process from hanging.
 
