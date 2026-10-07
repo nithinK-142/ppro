@@ -9,12 +9,12 @@ const registerSchema = z.object({
   confirmPassword: password
 }).refine((value) => value.password === value.confirmPassword, {
   path: ['confirmPassword'],
-  message: 'Passwords do not match'
+  error: 'Passwords do not match'
 });
 
 const verifySchema = z.object({
   email,
-  otp: z.string().regex(/^\d{6}$/, 'OTP must be 6 digits')
+  otp: z.string().regex(/^\d{6}$/, { error: 'OTP must be 6 digits' })
 });
 
 const loginSchema = z.object({ email, password });
