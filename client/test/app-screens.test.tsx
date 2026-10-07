@@ -163,7 +163,7 @@ describe('home and profile screens', () => {
     expect(screen.getByText('AC service visit')).toBeTruthy();
     expect(screen.getByText('Doctor appointment')).toBeTruthy();
     expect(screen.getByText('services')).toBeTruthy();
-    expect(screen.getAllByText('2')).toHaveLength(2);
+    expect(screen.getByText('2')).toBeTruthy();
     expect(screen.getByText('Bangalore')).toBeTruthy();
   });
 

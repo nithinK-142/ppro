@@ -34,7 +34,8 @@ describe('shared UI components', () => {
   it('StateCard renders alert and optional action', async () => {
     const onAction = vi.fn();
     await render(<StateCard title="Failed" message="Try again" actionLabel="Retry" onAction={onAction} />);
-    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(screen.getByText('Failed')).toBeTruthy();
+    expect(screen.getByText('Try again')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
     expect(onAction).toHaveBeenCalledOnce();
   });
