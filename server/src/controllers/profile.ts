@@ -1,9 +1,9 @@
 import type { RequestHandler } from 'express';
 import type { z } from 'zod';
-import { db } from '../db/index.ts';
+import { db } from '../config/db.ts';
 import type { UserProfileRow, TaskRow, ProfileRow } from '../types/database.ts';
 import type { DataResponse, MeData, ProfileData } from '../types/api.ts';
-import AppError from '../errors/app-error.ts';
+import AppError from '../utils/app-error.ts';
 import { profileSchema } from '../validation/profile.ts';
 
 type RouteParams = Record<string, string>;
@@ -12,13 +12,8 @@ type UpdateProfileInput = z.infer<typeof profileSchema>;
 type ProfileHandler = RequestHandler<RouteParams, DataResponse<MeData>>;
 type UpdateProfileHandler = RequestHandler<RouteParams, DataResponse<ProfileRow>, UpdateProfileInput>;
 
-function requireUserId(userId: number | undefined): number {
-  if (!userId) throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
-  return userId;
-}
-
 const getMe: ProfileHandler = async (req, res) => {
-  const userId = requireUserId(req.userId);
+  const userId = req.userId!;
   const [row, tasks] = await Promise.all([
     db.get<UserProfileRow>(`SELECT u.id, u.email, u.email_verified_at, u.created_at,
         p.name, p.mobile, p.address, p.business_name AS "businessName", p.updated_at AS profile_updated_at
@@ -50,7 +45,7 @@ const getMe: ProfileHandler = async (req, res) => {
 };
 
 const updateProfile: UpdateProfileHandler = async (req, res) => {
-  const userId = requireUserId(req.userId);
+  const userId = req.userId!;
   const { name, mobile, address, businessName } = req.body;
   await db.run(`INSERT INTO profiles (user_id, name, mobile, address, business_name)
     VALUES ($1, $2, $3, $4, $5)

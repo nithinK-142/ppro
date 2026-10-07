@@ -1,10 +1,10 @@
 import type { RequestHandler } from 'express';
 import type { z } from 'zod';
-import { db, transaction } from '../db/index.ts';
+import { db, transaction } from '../config/db.ts';
 import type { DataResponse, Pagination, TaskListData } from '../types/api.ts';
 import type { TaskIdRow, TaskRow, TaskWithTotalRow } from '../types/database.ts';
-import AppError from '../errors/app-error.ts';
-import { selectionSchema, taskListQuerySchema } from '../validation/tasks.ts';
+import AppError from '../utils/app-error.ts';
+import { taskListQuerySchema, selectionSchema } from '../validation/tasks.ts';
 
 type SelectionInput = z.infer<typeof selectionSchema>;
 
@@ -13,11 +13,6 @@ type RouteParams = Record<string, string>;
 type TaskListHandler = RequestHandler<RouteParams, TaskListData>;
 type SelectedTasksHandler = RequestHandler<RouteParams, DataResponse<TaskRow[]>>;
 type SelectionHandler = RequestHandler<RouteParams, DataResponse<TaskRow[]>, SelectionInput>;
-
-function requireUserId(userId: number | undefined): number {
-  if (!userId) throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');
-  return userId;
-}
 
 async function getSelectedTasks(userId: number) {
   return db.all<TaskRow>(
@@ -64,7 +59,7 @@ const listTasks: TaskListHandler = async (req, res) => {
 };
 
 const listSelectedTasks: SelectedTasksHandler = async (req, res) => {
-  const userId = requireUserId(req.userId);
+  const userId = req.userId!;
 
   const tasks = await getSelectedTasks(userId);
 
@@ -72,15 +67,8 @@ const listSelectedTasks: SelectedTasksHandler = async (req, res) => {
 };
 
 const saveSelectedTasks: SelectionHandler = async (req, res) => {
-  const userId = requireUserId(req.userId);
+  const userId = req.userId!;
   const { taskIds } = req.body;
-  if (taskIds.length === 0) {
-    await db.run('DELETE FROM user_tasks WHERE user_id = $1', [userId]);
-    const tasks = await getSelectedTasks(userId);
-    res.json({ data: tasks });
-    return;
-  }
-
   const placeholders = taskIds.map((_: number, index: number) => `$${index + 1}`).join(',');
   const existing = await db.all<TaskIdRow>(`SELECT id FROM tasks WHERE id IN (${placeholders})`, taskIds);
   const existingIds = existing.map((row) => row.id);
