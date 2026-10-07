@@ -30,7 +30,7 @@ export async function getTasks({ search = '', category, page = 1, limit = 50 }: 
 
   catalogueRequest = promise
     .then((data) => {
-      catalogueCache = data || [];
+      catalogueCache = data;
       catalogueCachedAt = Date.now();
       return catalogueCache;
     })
