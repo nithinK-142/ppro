@@ -59,14 +59,17 @@ describe('API client', () => {
 
   it('converts aborts into TIMEOUT', async () => {
     vi.useFakeTimers();
-    vi.stubGlobal('fetch', vi.fn((_url, options) => new Promise((_resolve, reject) => {
-      options.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
-    })));
+    try {
+      vi.stubGlobal('fetch', vi.fn((_url, options) => new Promise((_resolve, reject) => {
+        options.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+      })));
 
-    const promise = request('/slow');
-    await vi.advanceTimersByTimeAsync(15_000);
-    await expect(promise).rejects.toMatchObject({ code: 'TIMEOUT', status: 0 });
-    vi.useRealTimers();
+      const rejection = expect(request('/slow')).rejects.toMatchObject({ code: 'TIMEOUT', status: 0 });
+      await vi.advanceTimersByTimeAsync(15_000);
+      await rejection;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('jsonRequest serializes payloads', async () => {

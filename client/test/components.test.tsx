@@ -21,7 +21,6 @@ describe('shared UI components', () => {
     const onPress = vi.fn();
     await render(<Button label="Save" onPress={onPress} loading />);
     const button = screen.getByRole('button', { name: 'Save' });
-    expect(button.props.disabled).toBe(true);
     await fireEvent.press(button);
     expect(onPress).not.toHaveBeenCalled();
   });

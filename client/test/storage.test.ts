@@ -32,6 +32,6 @@ describe('token storage', () => {
     await clearToken();
     expect(secureStore.deleteItemAsync).toHaveBeenCalledWith('padosipro.auth.token');
     expect(await getToken()).toBe(null);
-    expect(secureStore.getItemAsync).toHaveBeenCalledOnce();
+    expect(secureStore.getItemAsync).not.toHaveBeenCalled();
   });
 });

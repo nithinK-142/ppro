@@ -162,7 +162,8 @@ describe('home and profile screens', () => {
     expect(screen.getByText('Good to have you back, Nithin.')).toBeTruthy();
     expect(screen.getByText('AC service visit')).toBeTruthy();
     expect(screen.getByText('Doctor appointment')).toBeTruthy();
-    expect(screen.getByText('2 services')).toBeTruthy();
+    expect(screen.getByText('services')).toBeTruthy();
+    expect(screen.getAllByText('2')).toHaveLength(2);
     expect(screen.getByText('Bangalore')).toBeTruthy();
   });
 

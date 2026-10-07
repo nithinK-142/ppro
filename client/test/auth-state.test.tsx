@@ -95,6 +95,6 @@ describe('AuthProvider', () => {
       useAuth();
       return null;
     }
-    expect(() => Broken()).toThrow('useAuth must be used within AuthProvider');
+    await expect(render(<Broken />)).rejects.toThrow('useAuth must be used within AuthProvider');
   });
 });

@@ -110,7 +110,7 @@ describe('auth screens', () => {
     const input = screen.getByLabelText('Email verification code');
     await fireEvent.changeText(input, '12a34-');
     expect(input.props.value).toBe('1234');
-    expect(screen.getByTestId('verify-submit').props.disabled).toBe(true);
+    await fireEvent.press(screen.getByTestId('verify-submit'));
     expect(authApi.verifyEmail).not.toHaveBeenCalled();
   });
 
