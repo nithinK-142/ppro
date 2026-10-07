@@ -92,13 +92,12 @@ describe('mailer', () => {
       });
     }));
 
-    const promise = sendOtp('user@example.com', '012345');
-    await vi.advanceTimersByTimeAsync(1_000);
-
-    await expect(promise).rejects.toMatchObject({
+    const assertion = expect(sendOtp('user@example.com', '012345')).rejects.toMatchObject({
       code: 'MAILJET_TIMEOUT',
       message: 'Mailjet request timeout'
     });
+    await vi.advanceTimersByTimeAsync(1_000);
+    await assertion;
   });
 
   it('passes through non-abort network errors', async () => {
