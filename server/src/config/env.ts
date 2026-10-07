@@ -21,19 +21,24 @@ const envSchema = z.object({
   CLIENT_ORIGIN: z.string().min(1).default('http://localhost:8081'),
   TRUST_PROXY: z.string().optional().default('false'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info')
-}).superRefine((value, ctx) => {
-  if (value.NODE_ENV === 'production' && value.JWT_SECRET === 'replace-with-a-long-random-secret') {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['JWT_SECRET'], message: 'JWT_SECRET must be changed in production' });
-  }
-  if (value.NODE_ENV === 'production' && value.OTP_SECRET === 'replace-with-another-long-random-secret') {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['OTP_SECRET'], message: 'OTP_SECRET must be changed in production' });
-  }
-});
+})
+  .refine(
+    ({ NODE_ENV, JWT_SECRET }) => NODE_ENV !== 'production' || JWT_SECRET !== 'replace-with-a-long-random-secret',
+    { path: ['JWT_SECRET'], error: 'JWT_SECRET must be changed in production' }
+  )
+  .refine(
+    ({ NODE_ENV, OTP_SECRET }) => NODE_ENV !== 'production' || OTP_SECRET !== 'replace-with-another-long-random-secret',
+    { path: ['OTP_SECRET'], error: 'OTP_SECRET must be changed in production' }
+  );
 
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error(JSON.stringify({ level: 'error', event: 'config.invalid', errors: parsed.error.flatten().fieldErrors }));
+  console.error(JSON.stringify({
+    level: 'error',
+    event: 'config.invalid',
+    errors: z.flattenError(parsed.error).fieldErrors
+  }));
   process.exit(1);
 }
 
