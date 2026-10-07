@@ -1,0 +1,29 @@
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false
+});
+
+const authIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false
+});
+
+const authAccountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 15,
+  keyGenerator: (req) => {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+    return email ? `email:${email}` : `ip:${ipKeyGenerator(ip)}`;
+  },
+  standardHeaders: 'draft-8',
+  legacyHeaders: false
+});
+
+export { apiLimiter, authIpLimiter, authAccountLimiter };

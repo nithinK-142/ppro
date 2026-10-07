@@ -3,19 +3,22 @@
   "version": "1.0.0",
   "private": true,
   "description": "PadosiPro assignment API",
-  "main": "src/server.js",
+  "main": "dist/server.js",
   "scripts": {
-    "dev": "node --watch src/server.js",
-    "start": "node src/server.js",
+    "build": "tsc && node scripts/copy-schema.mjs",
+    "start": "node dist/server.js",
+    "dev": "node --watch --experimental-strip-types src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "node --check src/server.js && node --check src/app.js",
+    "check": "node scripts/check-ts-runtime.mjs && tsc --noEmit",
     "generate:code": "openssl rand -hex 16"
   },
   "engines": {
-    "node": "22.x"
+    "node": ">=22.13.0"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
+    "@vercel/functions": "^3.6.2",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^18.0.4",
@@ -23,15 +26,21 @@
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
-    "zod": "^4.6.5",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
-    "@neondatabase/serverless": "^1.2.0",
-    "@vercel/functions": "^3.6.2"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "26.6.3",
+    "@types/supertest": "^7.2.1",
     "supertest": "^7.3.0",
+    "typescript": "5.9.3",
     "vitest": "^5.0.2"
   },
-  "packageManager": "pnpm@12.6.0"
+  "packageManager": "pnpm@12.6.0",
+  "type": "module"
 }
