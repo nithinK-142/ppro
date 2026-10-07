@@ -26,8 +26,6 @@ export class ApiError extends Error {
   }
 }
 
-type RequestOptions = RequestInit;
-
 type ErrorBody = {
   error?: {
     code?: string;
@@ -36,7 +34,7 @@ type ErrorBody = {
   };
 };
 
-export async function request<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function request<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await getToken();
   const requestId = createRequestId();
   const method = String(options.method || 'GET').toUpperCase();
