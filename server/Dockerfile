@@ -18,7 +18,7 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY docs ./docs
 
-RUN mkdir -p /app/data && chown -R node:node /app
+RUN chown -R node:node /app
 ENV NODE_ENV=production
 EXPOSE 4000
 USER node

@@ -1,8 +1,5 @@
 import type { QueryResult, QueryResultRow } from '@neondatabase/serverless';
 
-export type QueryParameter = string | number | boolean | null | Date | Uint8Array;
-export type QueryParameters = QueryParameter[];
-
 export interface UserExistsRow extends QueryResultRow {
   id: number;
   email_verified_at: Date | null;
