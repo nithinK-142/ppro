@@ -1,12 +1,13 @@
 import 'dotenv/config';
 import { z } from 'zod';
+import type { SignOptions } from 'jsonwebtoken';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
-  JWT_EXPIRES_IN: z.string().min(2).default('7d'),
+  JWT_EXPIRES_IN: z.string().min(2).default('7d').transform((value) => value as SignOptions['expiresIn']),
   OTP_SECRET: z.string().min(32),
   OTP_EXPIRES_MINUTES: z.coerce.number().int().min(1).max(60).default(10),
   OTP_RESEND_SECONDS: z.coerce.number().int().min(10).max(300).default(30),

@@ -1,5 +1,4 @@
 import type { RequestHandler } from 'express';
-import type { ParamsDictionary } from 'express-serve-static-core';
 import type { z } from 'zod';
 import { db } from '../db/index.ts';
 import type { UserProfileRow, TaskRow, ProfileRow } from '../types/database.ts';
@@ -7,9 +6,11 @@ import type { DataResponse, MeData, ProfileData } from '../types/api.ts';
 import AppError from '../errors/app-error.ts';
 import { profileSchema } from '../validation/profile.ts';
 
+type RouteParams = Record<string, string>;
+
 type UpdateProfileInput = z.infer<typeof profileSchema>;
-type ProfileHandler = RequestHandler<ParamsDictionary, DataResponse<MeData>>;
-type UpdateProfileHandler = RequestHandler<ParamsDictionary, DataResponse<ProfileRow>, UpdateProfileInput>;
+type ProfileHandler = RequestHandler<RouteParams, DataResponse<MeData>>;
+type UpdateProfileHandler = RequestHandler<RouteParams, DataResponse<ProfileRow>, UpdateProfileInput>;
 
 function requireUserId(userId: number | undefined): number {
   if (!userId) throw new AppError(401, 'UNAUTHORIZED', 'Authentication required');

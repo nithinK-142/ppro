@@ -3,7 +3,6 @@ import jwt from 'jsonwebtoken';
 import { waitUntil } from '@vercel/functions';
 import type { RequestHandler } from 'express';
 import type { z } from 'zod';
-import type { ParamsDictionary } from 'express-serve-static-core';
 import { db, transaction } from '../db/index.ts';
 import type { OtpRow, ProfileRow, ResendOtpRow, TaskRow, UserAuthRow, UserExistsRow, UserVerificationRow } from '../types/database.ts';
 import type { DataResponse, LoginData, RegisterData, ResendData, VerificationData } from '../types/api.ts';
@@ -17,10 +16,12 @@ type RegisterInput = z.infer<typeof registerSchema>;
 type VerifyInput = z.infer<typeof verifySchema>;
 type LoginInput = z.infer<typeof loginSchema>;
 
-type RegisterHandler = RequestHandler<ParamsDictionary, DataResponse<RegisterData>, RegisterInput>;
-type VerificationHandler = RequestHandler<ParamsDictionary, DataResponse<VerificationData>, VerifyInput>;
-type ResendHandler = RequestHandler<ParamsDictionary, DataResponse<ResendData | VerificationData>, Pick<VerifyInput, 'email'>>;
-type LoginHandler = RequestHandler<ParamsDictionary, DataResponse<LoginData>, LoginInput>;
+type RouteParams = Record<string, string>;
+
+type RegisterHandler = RequestHandler<RouteParams, DataResponse<RegisterData>, RegisterInput>;
+type VerificationHandler = RequestHandler<RouteParams, DataResponse<VerificationData>, VerifyInput>;
+type ResendHandler = RequestHandler<RouteParams, DataResponse<ResendData | VerificationData>, Pick<VerifyInput, 'email'>>;
+type LoginHandler = RequestHandler<RouteParams, DataResponse<LoginData>, LoginInput>;
 
 function createToken(userId: number) {
   return jwt.sign({ sub: userId }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN });
