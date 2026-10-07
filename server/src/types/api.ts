@@ -1,4 +1,4 @@
-import type { ProfileRow, TaskRow } from './database.ts';
+import type { TaskRow } from './database.ts';
 
 export interface UserSummary {
   id: number;
@@ -14,20 +14,18 @@ export interface ProfileData {
   updated_at: Date;
 }
 
-export interface LoginData {
-  token: string;
-  user: UserSummary;
-  profile: ProfileRow | null;
-  selectedTasks: TaskRow[];
-  setupComplete: boolean;
-}
-
-export interface MeData {
+export interface SessionData {
   user: UserSummary;
   profile: ProfileData | null;
   selectedTasks: TaskRow[];
   setupComplete: boolean;
 }
+
+export interface LoginData extends SessionData {
+  token: string;
+}
+
+export type MeData = SessionData;
 
 export interface RegisterData {
   userId: number;

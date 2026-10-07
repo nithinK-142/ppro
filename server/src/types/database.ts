@@ -1,10 +1,5 @@
 import type { QueryResult, QueryResultRow } from '@neondatabase/serverless';
 
-export interface UserExistsRow extends QueryResultRow {
-  id: number;
-  email_verified_at: Date | null;
-}
-
 export interface UserAuthRow extends QueryResultRow {
   id: number;
   email: string;
