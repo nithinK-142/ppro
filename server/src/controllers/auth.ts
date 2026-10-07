@@ -1,10 +1,11 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { waitUntil } from '@vercel/functions';
-import type { RequestHandler } from 'express';
+import type { Request, RequestHandler } from 'express';
 import type { z } from 'zod';
 import { query, transaction } from '../config/db.ts';
-import type { OtpRow, ProfileRow, ResendOtpRow, TaskRow, UserAuthRow, UserExistsRow, UserVerificationRow } from '../types/database.ts';
+import { findUserByEmail, getSelectedTasks } from '../config/queries.ts';
+import type { OtpRow, ProfileRow, ResendOtpRow, UserAuthRow } from '../types/database.ts';
 import type { DataResponse, LoginData, RegisterData, ResendData, VerificationData } from '../types/api.ts';
 import env from '../config/env.ts';
 import AppError from '../utils/app-error.ts';
@@ -32,12 +33,21 @@ function otpWindow() {
   return { sentAt, expiresAt };
 }
 
+function sendVerificationCode(req: Request, email: string, code: string, userId: number, event: 'auth.otp_sent' | 'auth.otp_resent') {
+  waitUntil(
+    sendOtp(email, code)
+      .then(() => {
+        req.log.info({ event, userId }, 'verification code sent');
+      })
+      .catch((err) => {
+        req.log.error({ err, event: 'auth.otp_send_failed', userId }, 'failed to send verification code');
+      })
+  );
+}
+
 const register: RegisterHandler = async (req, res) => {
   const { email, password } = req.body;
-  const { rows: [existing] } = await query<UserExistsRow>(
-    'SELECT id, email_verified_at FROM users WHERE email = $1',
-    [email]
-  );
+  const existing = await findUserByEmail(email);
 
   if (existing) {
     throw new AppError(409, 'EMAIL_EXISTS', existing.email_verified_at ? 'An account already exists for this email' : 'An account is already registered. Verify the email or request a new code.');
@@ -64,15 +74,7 @@ const register: RegisterHandler = async (req, res) => {
 
   req.log.info({ event: 'auth.registered', userId }, 'user registered');
 
-  waitUntil(
-    sendOtp(email, code)
-      .then(() => {
-        req.log.info({ event: 'auth.otp_sent', userId }, 'verification code sent');
-      })
-      .catch((err) => {
-        req.log.error({ err, event: 'auth.otp_send_failed', userId }, 'failed to send verification code');
-      })
-  );
+  sendVerificationCode(req, email, code, userId, 'auth.otp_sent');
 
   res.status(201).json({
     data: { userId, email, verificationRequired: true }
@@ -81,10 +83,7 @@ const register: RegisterHandler = async (req, res) => {
 
 const verifyEmail: VerificationHandler = async (req, res) => {
   const { email, otp } = req.body;
-  const { rows: [user] } = await query<UserVerificationRow>(
-    'SELECT id, email_verified_at FROM users WHERE email = $1',
-    [email]
-  );
+  const user = await findUserByEmail(email);
 
   if (!user) throw new AppError(400, 'INVALID_OTP', 'The verification code is invalid or expired');
   if (user.email_verified_at) {
@@ -118,10 +117,7 @@ const verifyEmail: VerificationHandler = async (req, res) => {
 
 const resendVerification: ResendHandler = async (req, res) => {
   const { email } = req.body;
-  const { rows: [user] } = await query<UserVerificationRow>(
-    'SELECT id, email_verified_at FROM users WHERE email = $1',
-    [email]
-  );
+  const user = await findUserByEmail(email);
 
   if (!user) throw new AppError(404, 'EMAIL_NOT_FOUND', 'No account exists for this email');
   if (user.email_verified_at) {
@@ -143,15 +139,7 @@ const resendVerification: ResendHandler = async (req, res) => {
     [user.id, hashOtp(code), expiresAt.toISOString(), sentAt.toISOString()]
   );
 
-  waitUntil(
-    sendOtp(email, code)
-      .then(() => {
-        req.log.info({ event: 'auth.otp_resent', userId: user.id }, 'verification code sent');
-      })
-      .catch((err) => {
-        req.log.error({ err, event: 'auth.otp_send_failed', userId: user.id }, 'failed to send verification code');
-      })
-  );
+  sendVerificationCode(req, email, code, user.id, 'auth.otp_resent');
 
   res.json({ data: { sent: true } });
 };
@@ -170,11 +158,9 @@ const login: LoginHandler = async (req, res) => {
     throw new AppError(403, 'EMAIL_NOT_VERIFIED', 'Verify your email before logging in');
   }
 
-  const [profileResult, tasksResult] = await Promise.all([
+  const [profileResult, selectedTasks] = await Promise.all([
     query<ProfileRow>('SELECT name, mobile, address, business_name AS "businessName", updated_at FROM profiles WHERE user_id = $1', [user.id]),
-    query<TaskRow>(`SELECT t.id, t.name, t.category, t.description
-      FROM user_tasks ut JOIN tasks t ON t.id = ut.task_id
-      WHERE ut.user_id = $1 ORDER BY t.category, t.name`, [user.id])
+    getSelectedTasks(user.id)
   ]);
   const profile = profileResult.rows[0];
 
@@ -183,8 +169,8 @@ const login: LoginHandler = async (req, res) => {
       token: createToken(user.id),
       user: { id: user.id, email: user.email, emailVerifiedAt: user.email_verified_at },
       profile: profile || null,
-      selectedTasks: tasksResult.rows,
-      setupComplete: Boolean(profile && tasksResult.rows.length)
+      selectedTasks,
+      setupComplete: Boolean(profile && selectedTasks.length)
     }
   });
 };

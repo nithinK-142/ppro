@@ -1,6 +1,7 @@
 import type { RequestHandler } from 'express';
 import type { z } from 'zod';
 import { query, transaction } from '../config/db.ts';
+import { getSelectedTasks } from '../config/queries.ts';
 import type { DataResponse, Pagination, TaskListData } from '../types/api.ts';
 import type { TaskIdRow, TaskRow, TaskWithTotalRow } from '../types/database.ts';
 import AppError from '../utils/app-error.ts';
@@ -11,13 +12,6 @@ type RouteParams = Record<string, string>;
 type TaskListHandler = RequestHandler<RouteParams, TaskListData>;
 type SelectedTasksHandler = RequestHandler<RouteParams, DataResponse<TaskRow[]>>;
 type SelectionHandler = RequestHandler<RouteParams, DataResponse<TaskRow[]>, SelectionInput>;
-
-async function getSelectedTasks(userId: number) {
-  const { rows } = await query<TaskRow>(`SELECT t.id, t.name, t.category, t.description
-    FROM user_tasks ut JOIN tasks t ON t.id = ut.task_id
-    WHERE ut.user_id = $1 ORDER BY t.category, t.name`, [userId]);
-  return rows;
-}
 
 const listTasks: TaskListHandler = async (req, res) => {
   const { search, category, page, limit } = taskListQuerySchema.parse(req.query);
