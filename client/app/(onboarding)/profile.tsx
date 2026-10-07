@@ -7,6 +7,7 @@ import { Field } from '../../src/components/Field';
 import { Screen } from '../../src/components/Screen';
 import { useAuth } from '../../src/state/auth';
 import { colors, spacing } from '../../src/theme';
+import { getErrorMessage } from '../../src/utils/errors';
 import { validateMobile } from '../../src/utils/form';
 
 export default function Profile() {
@@ -34,7 +35,7 @@ export default function Profile() {
       updateProfile(saved);
       router.replace('/(app)/tasks');
     } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : 'Unable to save profile.');
+      setMessage(getErrorMessage(error, 'Unable to save profile.'));
     } finally {
       setLoading(false);
     }

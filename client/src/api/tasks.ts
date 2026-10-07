@@ -1,4 +1,4 @@
-import { request } from './client';
+import { jsonRequest, request } from './client';
 import type { Task } from '../types';
 
 const CATALOGUE_TTL_MS = 5 * 60 * 1000;
@@ -41,7 +41,4 @@ export async function getTasks({ search = '', category, page = 1, limit = 50 }: 
   return catalogueRequest;
 }
 
-export const saveSelectedTasks = (taskIds: number[]) => request<Task[]>('/api/v1/tasks/selected', {
-  method: 'PUT',
-  body: JSON.stringify({ taskIds })
-});
+export const saveSelectedTasks = (taskIds: number[]) => jsonRequest<Task[]>('/api/v1/tasks/selected', 'PUT', { taskIds });

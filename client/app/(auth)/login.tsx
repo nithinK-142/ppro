@@ -1,13 +1,14 @@
 import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { ApiError } from '../../src/api/client';
 import { Button } from '../../src/components/Button';
 import { Field } from '../../src/components/Field';
-import { Screen } from '../../src/components/Screen';
+import { AuthScreen } from '../../src/components/AuthScreen';
 import { useAuth } from '../../src/state/auth';
 import { colors, spacing } from '../../src/theme';
-import { validateEmail, validatePassword } from '../../src/utils/form';
+import { validateCredentials } from '../../src/utils/form';
+import { getErrorMessage } from '../../src/utils/errors';
 
 export default function Login() {
   const { signIn } = useAuth();
@@ -19,22 +20,22 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
-    const next: Record<string, string> = {};
-    if (!validateEmail(email)) next.email = 'Enter a valid email';
-    if (!validatePassword(password)) next.password = 'Use at least 8 characters';
+    const next = validateCredentials(email, password);
     setErrors(next);
     setMessage('');
     if (Object.keys(next).length) return;
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     setLoading(true);
     try {
-      await signIn(email.trim().toLowerCase(), password);
+      await signIn(normalizedEmail, password);
       router.replace('/');
     } catch (error: unknown) {
       if (error instanceof ApiError && error.code === 'EMAIL_NOT_VERIFIED') {
-        router.push({ pathname: '/(auth)/verify', params: { email: email.trim().toLowerCase() } });
+        router.push({ pathname: '/(auth)/verify', params: { email: normalizedEmail } });
       } else {
-        setMessage(error instanceof Error ? error.message : 'Unable to sign in.');
+        setMessage(getErrorMessage(error, 'Unable to sign in.'));
       }
     } finally {
       setLoading(false);
@@ -42,8 +43,7 @@ export default function Login() {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <Screen contentStyle={styles.content}>
+    <AuthScreen contentStyle={styles.content}>
         <View style={styles.mark}><Text style={styles.markText}>PADOSI</Text><Text style={styles.dot}>PRO</Text></View>
         <View style={styles.hero}>
           <Text style={styles.kicker}>YOUR TO-DO, HANDLED</Text>
@@ -57,8 +57,7 @@ export default function Login() {
           <Button label="Sign in" onPress={submit} loading={loading} testID="login-submit" />
           <Text style={styles.bottom}>New here? <Link href="/(auth)/register" style={styles.link}>Create an account</Link></Text>
         </View>
-      </Screen>
-    </KeyboardAvoidingView>
+    </AuthScreen>
   );
 }
 
