@@ -72,11 +72,9 @@ src/
 ├── routes/        API routes
 ├── middleware/    Auth, validation, rate limiting, request logging
 ├── validation/    Zod request schemas
-├── db/            PostgreSQL setup, schema, and seed data
-├── utils/         OTP and email helpers
-├── logging/       Pino logger
-├── config/        Environment configuration
-└── errors/        Application errors
+├── config/        Environment, database, schema, and seed data
+├── utils/         Application errors, logging, OTP, and email helpers
+└── types/         API and database types
 ```
 
 Requests flow through routes → middleware → controllers.
@@ -137,7 +135,7 @@ Authorization and cookies are redacted from logs.
 
 Neon PostgreSQL stores application data.
 
-`src/db/seed.ts` seeds 30 task records across six categories.
+`src/config/seed.ts` seeds 30 task records across six categories.
 
 ## Checks and build
 
