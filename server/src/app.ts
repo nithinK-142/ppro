@@ -11,7 +11,6 @@ import healthRoutes from './routes/health.ts';
 import authRoutes from './routes/auth.ts';
 import profileRoutes from './routes/profile.ts';
 import taskRoutes from './routes/tasks.ts';
-import { seedTasks } from './config/seed.ts';
 
 const app = express();
 app.disable('x-powered-by');
@@ -25,14 +24,6 @@ app.use(express.json({ limit: '20kb' }));
 
 app.use('/health', healthRoutes);
 app.use('/api/v1', apiLimiter);
-app.use('/api/v1', async (_req, _res, next) => {
-  try {
-    await seedTasks();
-    next();
-  } catch (error) {
-    next(error);
-  }
-});
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/profile', profileRoutes);
 app.use('/api/v1/tasks', taskRoutes);
