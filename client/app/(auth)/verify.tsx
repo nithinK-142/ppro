@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { resendVerification, verifyEmail } from '../../src/api/auth';
 import { ApiError } from '../../src/api/client';
@@ -9,7 +9,7 @@ import { colors, radius, spacing } from '../../src/theme';
 
 export default function Verify() {
   const params = useLocalSearchParams();
-  const email = String(params.email || '');
+  const email = String(params.email ?? '');
   const [otp, setOtp] = useState('');
   const [seconds, setSeconds] = useState(30);
   const [loading, setLoading] = useState(false);
@@ -22,7 +22,7 @@ export default function Verify() {
     return () => clearInterval(timer);
   }, [seconds]);
 
-  const canSubmit = useMemo(() => /^\d{6}$/.test(otp), [otp]);
+  const canSubmit = /^\d{6}$/.test(otp);
 
   const verify = async () => {
     if (!canSubmit) return;

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AccountMenu } from '../../src/components/AccountMenu';
 import { Button } from '../../src/components/Button';
@@ -22,19 +22,13 @@ export default function Home() {
   const tasks = selectedTasks;
   const [menuVisible, setMenuVisible] = useState(false);
 
-  const groupedTasks = useMemo<[string, Task[]][]>(() => {
-    const groups = new Map<string, Task[]>();
-    for (const task of tasks) {
-      const categoryTasks = groups.get(task.category);
-
-      if (categoryTasks) {
-        categoryTasks.push(task);
-      } else {
-        groups.set(task.category, [task]);
-      }
-    }
-    return [...groups.entries()];
-  }, [tasks]);
+  const groups = new Map<string, Task[]>();
+  for (const task of tasks) {
+    const categoryTasks = groups.get(task.category);
+    if (categoryTasks) categoryTasks.push(task);
+    else groups.set(task.category, [task]);
+  }
+  const groupedTasks = [...groups.entries()];
 
   const categoryCount = groupedTasks.length;
   const firstName = profile?.name?.trim().split(/\s+/)[0] || 'there';

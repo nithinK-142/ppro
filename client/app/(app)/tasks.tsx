@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { getTasks, saveSelectedTasks } from '../../src/api/tasks';
 import { Button } from '../../src/components/Button';
@@ -22,46 +22,41 @@ export default function Tasks() {
   const [error, setError] = useState('');
   const [review, setReview] = useState(false);
 
-  const load = useCallback(async () => {
+  async function load() {
     setLoading(true);
     setError('');
     try {
-      const result = await getTasks({ limit: 50 });
-      setTasks(result || []);
+      setTasks(await getTasks({ limit: 50 }));
     } catch (requestError: unknown) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to load tasks.')
+      setError(requestError instanceof Error ? requestError.message : 'Unable to load tasks.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }
 
   useEffect(() => {
-    load();
-  }, [load]);
+    void load();
+  }, []);
 
-  const visibleTasks = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-    return tasks.filter((task) => {
-      if (category !== 'All' && task.category !== category) return false;
-      if (!normalizedSearch) return true;
-      return task.name.toLowerCase().includes(normalizedSearch)
-        || task.description.toLowerCase().includes(normalizedSearch);
-    });
-  }, [tasks, search, category]);
+  const normalizedSearch = search.trim().toLowerCase();
+  const visibleTasks = tasks.filter((task) => {
+    if (category !== 'All' && task.category !== category) return false;
+    if (!normalizedSearch) return true;
+    return task.name.toLowerCase().includes(normalizedSearch)
+      || task.description.toLowerCase().includes(normalizedSearch);
+  });
 
-  const selectedItems = useMemo(() => [...selected]
+  const selectedItems = [...selected]
     .map((id) => tasks.find((task) => task.id === id) || selectedTasks.find((task) => task.id === id))
-    .filter((task): task is Task => Boolean(task)), [tasks, selected, selectedTasks]);
+    .filter((task): task is Task => Boolean(task));
 
-  const groupedTasks = useMemo(() => {
-    const groups = new Map<string, Task[]>();
-    for (const task of visibleTasks) {
-      const group = groups.get(task.category);
-      if (group) group.push(task);
-      else groups.set(task.category, [task]);
-    }
-    return [...groups.entries()];
-  }, [visibleTasks]);
+  const groups = new Map<string, Task[]>();
+  for (const task of visibleTasks) {
+    const categoryTasks = groups.get(task.category);
+    if (categoryTasks) categoryTasks.push(task);
+    else groups.set(task.category, [task]);
+  }
+  const groupedTasks = [...groups.entries()];
 
   const toggle = (id: number) => {
     setSelected((current) => {
@@ -78,7 +73,7 @@ export default function Tasks() {
     setError('');
     try {
       const saved = await saveSelectedTasks([...selected]);
-      updateTasks(saved || []);
+      updateTasks(saved);
       router.replace('/(app)/home');
     } catch (requestError: unknown) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to save selected tasks.')
