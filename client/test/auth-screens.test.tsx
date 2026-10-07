@@ -1,6 +1,6 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { ApiError } from '../src/api/client';
 import { routeParams, testRouter } from './setup';
 
@@ -138,7 +138,9 @@ describe('auth screens', () => {
     routeParams.email = 'user@example.com';
     authApi.resendVerification.mockRejectedValue(new ApiError('Try again in 7 seconds', 'OTP_COOLDOWN', 429, { retryAfterSeconds: 7 }));
     await render(<Verify />);
-    await vi.advanceTimersByTimeAsync(30_000);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
     expect(screen.getByText('Did not get it?')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Send again' }));
     expect(screen.getByText('Try again in 7 seconds')).toBeTruthy();
