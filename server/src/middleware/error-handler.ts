@@ -1,5 +1,5 @@
 import type { ErrorRequestHandler } from 'express';
-import AppError from '../errors/app-error.ts';
+import AppError from '../utils/app-error.ts';
 
 function hasErrorType(error: unknown, type: string): boolean {
   return typeof error === 'object' && error !== null && 'type' in error && error.type === type;

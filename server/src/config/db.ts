@@ -2,8 +2,10 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Client, Pool } from '@neondatabase/serverless';
 import type { QueryResult, QueryResultRow } from '@neondatabase/serverless';
+
+type QueryParameter = string | number | boolean | null | Date | Uint8Array;
+type QueryParameters = QueryParameter[];
 import env from '../config/env.ts';
-import type { QueryParameter, QueryParameters } from '../types/database.ts';
 
 const pool = new Pool({ connectionString: env.DATABASE_URL });
 let initializePromise: Promise<void> | undefined;
@@ -89,4 +91,3 @@ async function closeDatabase() {
 }
 
 export { db, transaction, pingDatabase, initializeDatabase, closeDatabase };
-export type { QueryParameter };

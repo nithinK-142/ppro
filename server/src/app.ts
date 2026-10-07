@@ -6,12 +6,12 @@ import requestId from './middleware/request-id.ts';
 import httpLogger from './middleware/http-logger.ts';
 import { apiLimiter } from './middleware/rate-limit.ts';
 import errorHandler from './middleware/error-handler.ts';
-import AppError from './errors/app-error.ts';
+import AppError from './utils/app-error.ts';
 import healthRoutes from './routes/health.ts';
 import authRoutes from './routes/auth.ts';
 import profileRoutes from './routes/profile.ts';
 import taskRoutes from './routes/tasks.ts';
-import { seedTasks } from './db/seed.ts';
+import { seedTasks } from './config/seed.ts';
 
 const app = express();
 app.disable('x-powered-by');

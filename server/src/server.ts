@@ -1,7 +1,7 @@
 import app from './app.ts';
 import env from './config/env.ts';
-import { closeDatabase } from './db/index.ts';
-import logger from './logging/logger.ts';
+import { closeDatabase } from './config/db.ts';
+import logger from './utils/logger.ts';
 
 const server = app.listen(env.PORT, '0.0.0.0', () => {
   logger.info({ port: env.PORT }, 'api listening');

@@ -1,5 +1,5 @@
 import express from 'express';
-import { pingDatabase } from '../db/index.ts';
+import { pingDatabase } from '../config/db.ts';
 
 const router = express.Router();
 
