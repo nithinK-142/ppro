@@ -2,38 +2,34 @@ import * as SecureStore from 'expo-secure-store';
 
 const TOKEN_KEY = 'padosipro.auth.token';
 
-let cachedToken: string | null = null;
-let hydrated = false;
+let cachedToken: string | null | undefined;
 let hydrationPromise: Promise<string | null> | null = null;
 
-export async function getToken(): Promise<string | null> {
-  if (hydrated) return cachedToken;
+async function getToken() {
+  if (cachedToken !== undefined) return cachedToken;
 
-  if (!hydrationPromise) {
-    hydrationPromise = SecureStore.getItemAsync(TOKEN_KEY)
-      .then((token) => {
-        cachedToken = token;
-        hydrated = true;
-        return cachedToken;
-      })
-      .catch((error) => {
-        hydrationPromise = null;
-        throw error;
-      });
-  }
+  hydrationPromise ??= SecureStore.getItemAsync(TOKEN_KEY)
+    .then((token) => {
+      cachedToken = token;
+      return token;
+    })
+    .catch((error) => {
+      hydrationPromise = null;
+      throw error;
+    });
 
   return hydrationPromise;
 }
 
-export async function setToken(token: string): Promise<void> {
-  cachedToken = token;
-  hydrated = true;
+async function setToken(token: string) {
   await SecureStore.setItemAsync(TOKEN_KEY, token);
+  cachedToken = token;
 }
 
-export async function clearToken(): Promise<void> {
-  cachedToken = null;
-  hydrated = true;
-  hydrationPromise = null;
+async function clearToken() {
   await SecureStore.deleteItemAsync(TOKEN_KEY);
+  cachedToken = null;
+  hydrationPromise = null;
 }
+
+export { getToken, setToken, clearToken };

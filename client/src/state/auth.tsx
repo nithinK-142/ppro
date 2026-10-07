@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { getMe } from '../api/profile';
 import { ApiError } from '../api/client';
@@ -26,14 +26,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [selectedTasks, setSelectedTasks] = useState<Task[]>([]);
 
-  const applySession = useCallback((data: Pick<SessionData, 'user' | 'profile' | 'selectedTasks'>) => {
+  function applySession(data: Pick<SessionData, 'user' | 'profile' | 'selectedTasks'>) {
     setUser(data.user);
     setProfile(data.profile);
-    setSelectedTasks(data.selectedTasks || []);
+    setSelectedTasks(data.selectedTasks);
     setStatus('signed_in');
-  }, []);
+  }
 
-  const refresh = useCallback(async () => {
+  async function refresh() {
     const token = await getToken();
     if (!token) {
       setStatus('signed_out');
@@ -54,48 +54,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setStatus('session_error');
     }
-  }, [applySession]);
+  }
 
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+  }, []);
 
-  const signIn = useCallback(async (email: string, password: string) => {
+  async function signIn(email: string, password: string) {
     const data = await loginRequest({ email, password });
     await setToken(data.token);
+    applySession(data);
+  }
 
-    if (data.user) {
-      applySession(data);
-      return;
-    }
-
-    applySession(await getMe());
-  }, [applySession]);
-
-  const signOut = useCallback(async () => {
+  async function signOut() {
     await clearToken();
     setUser(null);
     setProfile(null);
     setSelectedTasks([]);
     setStatus('signed_out');
-  }, []);
+  }
 
-  const updateProfile = useCallback((nextProfile: Profile) => setProfile(nextProfile), []);
-  const updateTasks = useCallback((tasks: Task[]) => setSelectedTasks(tasks), []);
+  function updateProfile(nextProfile: Profile) {
+    setProfile(nextProfile);
+  }
 
-  const value = useMemo<AuthContextValue>(() => ({
-    status,
-    user,
-    profile,
-    selectedTasks,
-    signIn,
-    signOut,
-    refresh,
-    updateProfile,
-    updateTasks
-  }), [status, user, profile, selectedTasks, signIn, signOut, refresh, updateProfile, updateTasks]);
+  function updateTasks(tasks: Task[]) {
+    setSelectedTasks(tasks);
+  }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{
+      status,
+      user,
+      profile,
+      selectedTasks,
+      signIn,
+      signOut,
+      refresh,
+      updateProfile,
+      updateTasks
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthContextValue {

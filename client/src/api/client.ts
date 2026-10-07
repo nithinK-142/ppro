@@ -4,25 +4,23 @@ import { logger } from '../utils/logger';
 const apiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
 const REQUEST_TIMEOUT_MS = 15_000;
 
-function createRequestId() {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 if (!apiUrl) {
   throw new Error('EXPO_PUBLIC_API_URL is required');
 }
 
-export class ApiError extends Error {
-  code: string;
-  status: number;
-  details: Record<string, unknown>;
+function createRequestId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
-  constructor(message: string, code: string, status: number, details: Record<string, unknown> = {}) {
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public status: number,
+    public details: Record<string, unknown> = {}
+  ) {
     super(message);
     this.name = 'ApiError';
-    this.code = code;
-    this.status = status;
-    this.details = details;
   }
 }
 
@@ -34,20 +32,19 @@ type ErrorBody = {
   };
 };
 
-export async function request<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
+type ResponseBody<T> = { data?: T } & ErrorBody;
+
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await getToken();
   const requestId = createRequestId();
-  const method = String(options.method || 'GET').toUpperCase();
-  const url = `${apiUrl}${path}`;
+  const method = (options.method ?? 'GET').toUpperCase();
   const startedAt = Date.now();
-  const headers = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    'X-Request-Id': requestId,
-    ...(options.headers || {})
-  } as Record<string, string>;
+  const headers = new Headers(options.headers);
 
-  if (token) headers.Authorization = `Bearer ${token}`;
+  headers.set('Accept', 'application/json');
+  headers.set('Content-Type', 'application/json');
+  headers.set('X-Request-Id', requestId);
+  if (token) headers.set('Authorization', `Bearer ${token}`);
 
   logger.debug('api.request', { method, path, requestId });
 
@@ -56,10 +53,11 @@ export async function request<T = unknown>(path: string, options: RequestInit = 
 
   let response: Response;
   try {
-    response = await fetch(url, { ...options, headers, signal: controller.signal });
+    response = await fetch(`${apiUrl}${path}`, { ...options, headers, signal: controller.signal });
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));
     const timedOut = err.name === 'AbortError';
+
     logger.error(timedOut ? 'api.timeout' : 'api.network_error', {
       method,
       path,
@@ -67,6 +65,7 @@ export async function request<T = unknown>(path: string, options: RequestInit = 
       durationMs: Date.now() - startedAt,
       message: err.message
     });
+
     throw new ApiError(
       timedOut ? 'Request timed out. Check your connection and try again.' : 'Network error. Check your connection and try again.',
       timedOut ? 'TIMEOUT' : 'NETWORK_ERROR',
@@ -78,7 +77,7 @@ export async function request<T = unknown>(path: string, options: RequestInit = 
   }
 
   const responseRequestId = response.headers.get('X-Request-Id') || requestId;
-  const body = await response.json().catch(() => null) as { data?: T } & ErrorBody | null;
+  const body = await response.json().catch(() => null) as ResponseBody<T> | null;
   const durationMs = Date.now() - startedAt;
 
   if (!response.ok) {
@@ -91,6 +90,7 @@ export async function request<T = unknown>(path: string, options: RequestInit = 
       durationMs,
       code: error?.code || 'REQUEST_FAILED'
     });
+
     throw new ApiError(
       error?.message || 'Request failed. Try again.',
       error?.code || 'REQUEST_FAILED',
