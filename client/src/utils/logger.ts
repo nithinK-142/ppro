@@ -1,4 +1,7 @@
-const levelOrder = {
+type LogLevel = 'silent' | 'error' | 'warn' | 'info' | 'debug';
+type LogFields = Record<string, unknown>;
+
+const levelOrder: Record<LogLevel, number> = {
   silent: 99,
   error: 40,
   warn: 30,
@@ -9,10 +12,12 @@ const levelOrder = {
 const configuredLevel = String(
   process.env.EXPO_PUBLIC_LOG_LEVEL || (__DEV__ ? 'debug' : 'error')
 ).toLowerCase();
-const threshold = levelOrder[configuredLevel] ?? levelOrder.error;
+const threshold = Object.hasOwn(levelOrder, configuredLevel)
+  ? levelOrder[configuredLevel as LogLevel]
+  : levelOrder.error;
 
-function write(level, event, fields = {}) {
-  if ((levelOrder[level] ?? 99) < threshold) return;
+function write(level: Exclude<LogLevel, 'silent'>, event: string, fields: LogFields = {}) {
+  if (levelOrder[level] < threshold) return;
 
   const payload = {
     time: new Date().toISOString(),
@@ -28,8 +33,8 @@ function write(level, event, fields = {}) {
 }
 
 export const logger = {
-  debug: (event, fields) => write('debug', event, fields),
-  info: (event, fields) => write('info', event, fields),
-  warn: (event, fields) => write('warn', event, fields),
-  error: (event, fields) => write('error', event, fields)
+  debug: (event: string, fields?: LogFields) => write('debug', event, fields),
+  info: (event: string, fields?: LogFields) => write('info', event, fields),
+  warn: (event: string, fields?: LogFields) => write('warn', event, fields),
+  error: (event: string, fields?: LogFields) => write('error', event, fields)
 };

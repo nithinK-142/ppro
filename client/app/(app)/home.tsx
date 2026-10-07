@@ -25,8 +25,13 @@ export default function Home() {
   const groupedTasks = useMemo<[string, Task[]][]>(() => {
     const groups = new Map<string, Task[]>();
     for (const task of tasks) {
-      if (!groups.has(task.category)) groups.set(task.category, []);
-      groups.get(task.category).push(task);
+      const categoryTasks = groups.get(task.category);
+
+      if (categoryTasks) {
+        categoryTasks.push(task);
+      } else {
+        groups.set(task.category, [task]);
+      }
     }
     return [...groups.entries()];
   }, [tasks]);
