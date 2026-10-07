@@ -1,37 +1,15 @@
 import type { RequestHandler } from 'express';
 import { z } from 'zod';
-import AppError from '../errors/app-error.ts';
+import AppError from '../utils/app-error.ts';
 
-type ValidationConfig = {
-  body?: z.ZodType;
-  query?: z.ZodType;
-  params?: z.ZodType;
-};
-
-const validate = ({ body, query, params }: ValidationConfig): RequestHandler => (req, _res, next) => {
-  const sources = [
-    ['body', body],
-    ['query', query],
-    ['params', params]
-  ] as const;
-
-  for (const [source, schema] of sources) {
-    if (!schema) continue;
-    const result = schema.safeParse(req[source]);
-    if (!result.success) {
-      next(new AppError(400, 'VALIDATION_ERROR', 'Request validation failed', result.error.flatten().fieldErrors));
-      return;
-    }
-    if (source === 'query') {
-      const target = req.query;
-      for (const key of Object.keys(target)) delete target[key];
-      Object.assign(target, result.data as Record<string, unknown>);
-      continue;
-    }
-
-    req[source] = result.data;
+const validate = (schema: z.ZodType): RequestHandler => (req, _res, next) => {
+  const result = schema.safeParse(req.body);
+  if (!result.success) {
+    next(new AppError(400, 'VALIDATION_ERROR', 'Request validation failed', result.error.flatten().fieldErrors));
+    return;
   }
 
+  req.body = result.data;
   next();
 };
 

@@ -7,6 +7,6 @@ import { profileSchema } from '../validation/profile.ts';
 const router = express.Router();
 router.use(authenticate);
 router.get('/', getMe);
-router.patch('/', validate({ body: profileSchema }), updateProfile);
+router.patch('/', validate(profileSchema), updateProfile);
 
 export default router;
