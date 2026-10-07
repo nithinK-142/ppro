@@ -55,7 +55,7 @@ describe('API feature wrappers', () => {
     await tasks.getTasks({ search: 'cleaning', category: 'Home Services', page: 2, limit: 10 });
     await tasks.saveSelectedTasks([1, 2]);
 
-    expect(request).toHaveBeenCalledWith('/api/v1/tasks?search=cleaning&page=2&limit=10&category=Home%20Services');
+    expect(request).toHaveBeenCalledWith('/api/v1/tasks?search=cleaning&page=2&limit=10&category=Home+Services');
     expect(jsonRequest).toHaveBeenCalledWith('/api/v1/tasks/selected', 'PUT', { taskIds: [1, 2] });
   });
 

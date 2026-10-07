@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 import { reactNative } from 'vitest-native';
 
 export default defineConfig({
-  plugins: [reactNative({ engine: 'mock' })],
+  plugins: [reactNative({ engine: 'native' })],
   test: {
     include: ['test/**/*.test.ts', 'test/**/*.test.tsx'],
     setupFiles: ['./test/setup.ts'],

@@ -34,9 +34,7 @@ export const testRouter = mocks.router;
 export const routeParams = mocks.params;
 export const secureStore = mocks.secureStore;
 
-afterEach(async () => {
-  const { cleanup } = await import('@testing-library/react-native');
-  cleanup();
+afterEach(() => {
   mocks.router.push.mockReset();
   mocks.router.replace.mockReset();
   mocks.router.back.mockReset();
