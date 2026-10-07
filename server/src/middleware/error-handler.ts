@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler } from 'express';
+import { z } from 'zod';
 import AppError from '../utils/app-error.ts';
 
 function hasErrorType(error: unknown, type: string): boolean {
@@ -12,6 +13,8 @@ const errorHandler: ErrorRequestHandler = (err: unknown, req, res, _next) => {
     error = new AppError(413, 'REQUEST_TOO_LARGE', 'Request body is too large');
   } else if (hasErrorType(err, 'entity.parse.failed')) {
     error = new AppError(400, 'INVALID_JSON', 'Request body must contain valid JSON');
+  } else if (err instanceof z.ZodError) {
+    error = new AppError(400, 'VALIDATION_ERROR', 'Request validation failed', z.flattenError(err).fieldErrors);
   } else if (err instanceof AppError) {
     error = err;
   } else {
