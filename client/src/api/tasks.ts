@@ -45,10 +45,3 @@ export const saveSelectedTasks = (taskIds: number[]) => request<Task[]>('/api/v1
   method: 'PUT',
   body: JSON.stringify({ taskIds })
 });
-
-export const getSelectedTasks = () => request<Task[]>('/api/v1/tasks/selected');
-
-export function invalidateTaskCatalogue() {
-  catalogueCache = null;
-  catalogueCachedAt = 0;
-}
