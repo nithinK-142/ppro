@@ -3,9 +3,10 @@ import jwt from 'jsonwebtoken';
 import { waitUntil } from '@vercel/functions';
 import type { Request, RequestHandler } from 'express';
 import type { z } from 'zod';
-import { query, transaction } from '../config/db.ts';
+import { eq } from 'drizzle-orm';
+import { db } from '../config/db.ts';
+import { emailOtps, profiles, users } from '../config/schema.ts';
 import { findUserByEmail, getSelectedTasks } from '../config/queries.ts';
-import type { OtpRow, ProfileRow, ResendOtpRow, UserAuthRow } from '../types/database.ts';
 import type { DataResponse, LoginData, RegisterData, ResendData, VerificationData } from '../types/api.ts';
 import env from '../config/env.ts';
 import AppError from '../utils/app-error.ts';
@@ -50,24 +51,26 @@ const register: RegisterHandler = async (req, res) => {
   const existing = await findUserByEmail(email);
 
   if (existing) {
-    throw new AppError(409, 'EMAIL_EXISTS', existing.email_verified_at ? 'An account already exists for this email' : 'An account is already registered. Verify the email or request a new code.');
+    throw new AppError(409, 'EMAIL_EXISTS', existing.emailVerifiedAt ? 'An account already exists for this email' : 'An account is already registered. Verify the email or request a new code.');
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
   const code = generateOtp();
   const { sentAt, expiresAt } = otpWindow();
 
-  const userId = await transaction(async (query) => {
-    const { rows: [user] } = await query<{ id: number }>(
-      'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id',
-      [email, passwordHash]
-    );
+  const userId = await db.transaction(async (tx) => {
+    const [user] = await tx.insert(users)
+      .values({ email, passwordHash })
+      .returning({ id: users.id });
     if (!user) throw new AppError(500, 'INTERNAL_ERROR', 'Failed to create account');
 
-    await query(
-      'INSERT INTO email_otps (user_id, code_hash, expires_at, attempts, sent_at) VALUES ($1, $2, $3, 0, $4)',
-      [user.id, hashOtp(code), expiresAt.toISOString(), sentAt.toISOString()]
-    );
+    await tx.insert(emailOtps).values({
+      userId: user.id,
+      codeHash: hashOtp(code),
+      expiresAt,
+      attempts: 0,
+      sentAt
+    });
 
     return user.id;
   });
@@ -86,29 +89,30 @@ const verifyEmail: VerificationHandler = async (req, res) => {
   const user = await findUserByEmail(email);
 
   if (!user) throw new AppError(400, 'INVALID_OTP', 'The verification code is invalid or expired');
-  if (user.email_verified_at) {
+  if (user.emailVerifiedAt) {
     res.json({ data: { verified: true } });
     return;
   }
 
-  const { rows: [record] } = await query<OtpRow>(
-    'SELECT code_hash, expires_at, attempts FROM email_otps WHERE user_id = $1',
-    [user.id]
-  );
+  const [record] = await db.select({
+    codeHash: emailOtps.codeHash,
+    expiresAt: emailOtps.expiresAt,
+    attempts: emailOtps.attempts
+  }).from(emailOtps).where(eq(emailOtps.userId, user.id)).limit(1);
 
-  if (!record || record.attempts >= env.OTP_MAX_ATTEMPTS || otpExpired(record.expires_at)) {
+  if (!record || record.attempts >= env.OTP_MAX_ATTEMPTS || otpExpired(record.expiresAt)) {
     throw new AppError(400, 'INVALID_OTP', 'The verification code is invalid or expired');
   }
 
-  if (!otpMatches(otp, record.code_hash)) {
+  if (!otpMatches(otp, record.codeHash)) {
     const attempts = record.attempts + 1;
-    await query('UPDATE email_otps SET attempts = $1 WHERE user_id = $2', [attempts, user.id]);
+    await db.update(emailOtps).set({ attempts }).where(eq(emailOtps.userId, user.id));
     throw new AppError(400, 'INVALID_OTP', attempts >= env.OTP_MAX_ATTEMPTS ? 'Too many incorrect attempts. Request a new code.' : 'The verification code is incorrect');
   }
 
-  await transaction(async (query) => {
-    await query('UPDATE users SET email_verified_at = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
-    await query('DELETE FROM email_otps WHERE user_id = $1', [user.id]);
+  await db.transaction(async (tx) => {
+    await tx.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, user.id));
+    await tx.delete(emailOtps).where(eq(emailOtps.userId, user.id));
   });
 
   req.log.info({ event: 'auth.email_verified', userId: user.id }, 'email verified');
@@ -120,24 +124,30 @@ const resendVerification: ResendHandler = async (req, res) => {
   const user = await findUserByEmail(email);
 
   if (!user) throw new AppError(404, 'EMAIL_NOT_FOUND', 'No account exists for this email');
-  if (user.email_verified_at) {
+  if (user.emailVerifiedAt) {
     res.json({ data: { verified: true } });
     return;
   }
 
-  const { rows: [current] } = await query<ResendOtpRow>(
-    'SELECT sent_at FROM email_otps WHERE user_id = $1',
-    [user.id]
-  );
-  const wait = current ? resendAvailable(current.sent_at) : 0;
+  const [current] = await db.select({ sentAt: emailOtps.sentAt })
+    .from(emailOtps)
+    .where(eq(emailOtps.userId, user.id))
+    .limit(1);
+  const wait = current ? resendAvailable(current.sentAt) : 0;
   if (wait > 0) throw new AppError(429, 'OTP_COOLDOWN', `Try again in ${wait} seconds`, { retryAfterSeconds: wait });
 
   const code = generateOtp();
   const { sentAt, expiresAt } = otpWindow();
-  await query(
-    'INSERT INTO email_otps (user_id, code_hash, expires_at, attempts, sent_at) VALUES ($1, $2, $3, 0, $4) ON CONFLICT(user_id) DO UPDATE SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, attempts = 0, sent_at = EXCLUDED.sent_at',
-    [user.id, hashOtp(code), expiresAt.toISOString(), sentAt.toISOString()]
-  );
+  await db.insert(emailOtps).values({
+    userId: user.id,
+    codeHash: hashOtp(code),
+    expiresAt,
+    attempts: 0,
+    sentAt
+  }).onConflictDoUpdate({
+    target: emailOtps.userId,
+    set: { codeHash: hashOtp(code), expiresAt, attempts: 0, sentAt }
+  });
 
   sendVerificationCode(req, email, code, user.id, 'auth.otp_resent');
 
@@ -146,28 +156,36 @@ const resendVerification: ResendHandler = async (req, res) => {
 
 const login: LoginHandler = async (req, res) => {
   const { email, password } = req.body;
-  const { rows: [user] } = await query<UserAuthRow>(
-    'SELECT id, email, password_hash, email_verified_at FROM users WHERE email = $1',
-    [email]
-  );
+  const [user] = await db.select({
+    id: users.id,
+    email: users.email,
+    passwordHash: users.passwordHash,
+    emailVerifiedAt: users.emailVerifiedAt
+  }).from(users).where(eq(users.email, email)).limit(1);
 
-  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
     throw new AppError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect');
   }
-  if (!user.email_verified_at) {
+  if (!user.emailVerifiedAt) {
     throw new AppError(403, 'EMAIL_NOT_VERIFIED', 'Verify your email before logging in');
   }
 
   const [profileResult, selectedTasks] = await Promise.all([
-    query<ProfileRow>('SELECT name, mobile, address, business_name AS "businessName", updated_at FROM profiles WHERE user_id = $1', [user.id]),
+    db.select({
+      name: profiles.name,
+      mobile: profiles.mobile,
+      address: profiles.address,
+      businessName: profiles.businessName,
+      updated_at: profiles.updatedAt
+    }).from(profiles).where(eq(profiles.userId, user.id)).limit(1),
     getSelectedTasks(user.id)
   ]);
-  const profile = profileResult.rows[0];
+  const profile = profileResult[0];
 
   res.json({
     data: {
       token: createToken(user.id),
-      user: { id: user.id, email: user.email, emailVerifiedAt: user.email_verified_at },
+      user: { id: user.id, email: user.email, emailVerifiedAt: user.emailVerifiedAt },
       profile: profile || null,
       selectedTasks,
       setupComplete: Boolean(profile && selectedTasks.length)
