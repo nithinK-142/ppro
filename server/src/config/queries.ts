@@ -1,19 +1,29 @@
-import { query } from './db.ts';
-import type { TaskRow, UserVerificationRow } from '../types/database.ts';
+import { asc, eq } from 'drizzle-orm';
+import { db } from './db.ts';
+import { profiles, tasks, userTasks, users } from './schema.ts';
 
 async function findUserByEmail(email: string) {
-  const { rows: [user] } = await query<UserVerificationRow>(
-    'SELECT id, email_verified_at FROM users WHERE email = $1',
-    [email]
-  );
+  const [user] = await db
+    .select({ id: users.id, email: users.email, emailVerifiedAt: users.emailVerifiedAt })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
   return user;
 }
 
 async function getSelectedTasks(userId: number) {
-  const { rows } = await query<TaskRow>(`SELECT t.id, t.name, t.category, t.description
-    FROM user_tasks ut JOIN tasks t ON t.id = ut.task_id
-    WHERE ut.user_id = $1 ORDER BY t.category, t.name`, [userId]);
-  return rows;
+  return db
+    .select({
+      id: tasks.id,
+      name: tasks.name,
+      category: tasks.category,
+      description: tasks.description
+    })
+    .from(userTasks)
+    .innerJoin(tasks, eq(userTasks.taskId, tasks.id))
+    .where(eq(userTasks.userId, userId))
+    .orderBy(asc(tasks.category), asc(tasks.name));
 }
 
 export { findUserByEmail, getSelectedTasks };

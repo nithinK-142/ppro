@@ -2,11 +2,14 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Client, Pool } from '@neondatabase/serverless';
 import type { QueryResult, QueryResultRow } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-serverless';
+import { sql } from 'drizzle-orm';
 import env from './env.ts';
 
 type QueryParameter = string | number | boolean | null | Date | Uint8Array;
 
 const pool = new Pool({ connectionString: env.DATABASE_URL });
+const db = drizzle({ client: pool });
 let initializePromise: Promise<void> | undefined;
 
 async function initializeDatabase() {
@@ -60,7 +63,7 @@ async function transaction<T>(callback: (query: typeof query) => Promise<T>) {
 
 async function pingDatabase() {
   try {
-    await query('SELECT 1');
+    await db.execute(sql`SELECT 1`);
     return true;
   } catch {
     return false;
@@ -71,4 +74,4 @@ async function closeDatabase() {
   await pool.end();
 }
 
-export { query, transaction, pingDatabase, initializeDatabase, closeDatabase };
+export { db, query, transaction, pingDatabase, initializeDatabase, closeDatabase };
