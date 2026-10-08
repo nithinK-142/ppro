@@ -34,7 +34,7 @@ describe('database helpers', () => {
 
   it('cascades user cleanup to profile and selections', async () => {
     const [user] = await db.insert(users).values({ email: `cascade-${Date.now()}@example.com`, passwordHash: 'hash' }).returning({ id: users.id });
-    const [task] = await db.select({ id: tasks.id }).limit(1);
+    const [task] = await db.select({ id: tasks.id }).from(tasks).limit(1);
     if (!user || !task) throw new Error('Failed to prepare cascade test');
 
     await db.insert(profiles).values({ userId: user.id, name: 'Test User', mobile: '+919876543210', address: 'Bangalore' });
