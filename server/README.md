@@ -76,14 +76,14 @@ src/
 ├── routes/        API routes
 ├── middleware/    Auth, validation, rate limiting, request logging
 ├── validation/    Zod request schemas
-├── config/        Environment, database, schema, and seed data
+├── config/        Environment, database, Drizzle schema, SQL bootstrap, and seed data
 ├── utils/         Application errors, logging, OTP, and email helpers
-└── types/         API and database types
+└── types/         API types
 ```
 
 Requests flow through routes → middleware → controllers.
 
-Validation uses Zod. Authentication uses JWT and bcrypt.
+Controllers use Drizzle for typed PostgreSQL queries and transactions; raw SQL is kept only for the small startup schema bootstrap and database health check. Validation uses Zod. Authentication uses JWT and bcrypt.
 
 ## Flow
 
@@ -137,7 +137,9 @@ Authorization and cookies are redacted from logs.
 
 ## Data
 
-Neon PostgreSQL stores application data.
+Neon PostgreSQL stores application data through Drizzle ORM on top of the Neon serverless driver.
+
+`src/config/schema.ts` defines the typed PostgreSQL tables used by application queries. `src/config/schema.sql` remains the startup schema bootstrap so the assignment still initializes a fresh database without a separate migration step.
 
 `src/config/seed.ts` seeds 30 task records across six categories.
 
