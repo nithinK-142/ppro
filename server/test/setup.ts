@@ -8,14 +8,15 @@ process.env.CLIENT_ORIGIN = 'http://localhost:8081';
 process.env.LOG_LEVEL = 'silent';
 
 beforeAll(async () => {
-  const { initializeDatabase, query } = await import('../src/config/db.ts');
+  const { initializeDatabase, db } = await import('../src/config/db.ts');
+  const { tasks, userTasks, profiles, emailOtps, users } = await import('../src/config/schema.ts');
   const { seedTasks } = await import('../src/config/seed.ts');
 
   await initializeDatabase();
-  await query('DELETE FROM user_tasks');
-  await query('DELETE FROM profiles');
-  await query('DELETE FROM email_otps');
-  await query('DELETE FROM users');
-  await query('DELETE FROM tasks');
+  await db.delete(userTasks);
+  await db.delete(profiles);
+  await db.delete(emailOtps);
+  await db.delete(users);
+  await db.delete(tasks);
   await seedTasks();
 });
