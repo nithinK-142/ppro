@@ -1,4 +1,4 @@
-import type { TaskRow } from './database.ts';
+import type { TaskRow } from '../config/schema.ts';
 
 export interface UserSummary {
   id: number;

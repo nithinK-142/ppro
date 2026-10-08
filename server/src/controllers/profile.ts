@@ -1,28 +1,39 @@
 import type { RequestHandler } from 'express';
 import type { z } from 'zod';
-import { query } from '../config/db.ts';
+import { eq } from 'drizzle-orm';
+import { db } from '../config/db.ts';
+import { profiles, users } from '../config/schema.ts';
 import { getSelectedTasks } from '../config/queries.ts';
-import type { UserProfileRow, ProfileRow } from '../types/database.ts';
-import type { DataResponse, SessionData } from '../types/api.ts';
+import type { DataResponse, ProfileData, SessionData } from '../types/api.ts';
 import AppError from '../utils/app-error.ts';
 import { profileSchema } from '../validation/profile.ts';
 
 type RouteParams = Record<string, string>;
 type UpdateProfileInput = z.infer<typeof profileSchema>;
 type ProfileHandler = RequestHandler<RouteParams, DataResponse<SessionData>>;
-type UpdateProfileHandler = RequestHandler<RouteParams, DataResponse<ProfileRow>, UpdateProfileInput>;
+type UpdateProfileHandler = RequestHandler<RouteParams, DataResponse<ProfileData>, UpdateProfileInput>;
 
 const getMe: ProfileHandler = async (req, res) => {
   const userId = req.userId!;
   const [userResult, selectedTasks] = await Promise.all([
-    query<UserProfileRow>(`SELECT u.id, u.email, u.email_verified_at, u.created_at,
-        p.name, p.mobile, p.address, p.business_name AS "businessName", p.updated_at AS profile_updated_at
-        FROM users u LEFT JOIN profiles p ON p.user_id = u.id
-        WHERE u.id = $1`, [userId]),
+    db.select({
+      id: users.id,
+      email: users.email,
+      emailVerifiedAt: users.emailVerifiedAt,
+      name: profiles.name,
+      mobile: profiles.mobile,
+      address: profiles.address,
+      businessName: profiles.businessName,
+      profile_updated_at: profiles.updatedAt
+    })
+      .from(users)
+      .leftJoin(profiles, eq(profiles.userId, users.id))
+      .where(eq(users.id, userId))
+      .limit(1),
     getSelectedTasks(userId)
   ]);
 
-  const row = userResult.rows[0];
+  const row = userResult[0];
   if (!row) throw new AppError(401, 'UNAUTHORIZED', 'User no longer exists');
 
   const profile = row.name ? {
@@ -35,7 +46,7 @@ const getMe: ProfileHandler = async (req, res) => {
 
   res.json({
     data: {
-      user: { id: row.id, email: row.email, emailVerifiedAt: row.email_verified_at },
+      user: { id: row.id, email: row.email, emailVerifiedAt: row.emailVerifiedAt },
       profile,
       selectedTasks,
       setupComplete: Boolean(profile && selectedTasks.length)
@@ -47,16 +58,31 @@ const updateProfile: UpdateProfileHandler = async (req, res) => {
   const userId = req.userId!;
   const { name, mobile, address, businessName } = req.body;
 
-  await query(`INSERT INTO profiles (user_id, name, mobile, address, business_name)
-    VALUES ($1, $2, $3, $4, $5)
-    ON CONFLICT(user_id) DO UPDATE SET name = EXCLUDED.name, mobile = EXCLUDED.mobile, address = EXCLUDED.address, business_name = EXCLUDED.business_name, updated_at = CURRENT_TIMESTAMP`,
-    [userId, name, mobile, address, businessName || null]
-  );
+  await db.insert(profiles).values({
+    userId,
+    name,
+    mobile,
+    address,
+    businessName: businessName || null
+  }).onConflictDoUpdate({
+    target: profiles.userId,
+    set: {
+      name,
+      mobile,
+      address,
+      businessName: businessName || null,
+      updatedAt: new Date()
+    }
+  });
 
-  const { rows: [profile] } = await query<ProfileRow>(
-    'SELECT name, mobile, address, business_name AS "businessName", updated_at FROM profiles WHERE user_id = $1',
-    [userId]
-  );
+  const [profile] = await db.select({
+    name: profiles.name,
+    mobile: profiles.mobile,
+    address: profiles.address,
+    businessName: profiles.businessName,
+    updated_at: profiles.updatedAt
+  }).from(profiles).where(eq(profiles.userId, userId)).limit(1);
+
   if (!profile) throw new AppError(500, 'INTERNAL_ERROR', 'Failed to load updated profile');
 
   res.json({ data: profile });
