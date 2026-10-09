@@ -59,7 +59,11 @@ Vercel environment variables are configured outside the repository. Redeploy aft
 Docker uses the same Neon PostgreSQL database through `DATABASE_URL`.
 
 ```sh
-docker compose up --build
+# Build the  image
+docker build -t padosipro-api .
+
+# Run the API container in production mode, load environment variables, and expose port 4000
+docker run --rm --name padosipro-api --env-file .env -e NODE_ENV=production -p 4000:4000 padosipro-api
 ```
 
 API: `http://localhost:4000`
