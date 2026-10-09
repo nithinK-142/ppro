@@ -1,9 +1,0 @@
-services:
-  api:
-    build: .
-    env_file: .env
-    environment:
-      NODE_ENV: production
-      CLIENT_ORIGIN: http://localhost:8081
-    ports:
-      - "4000:4000"
