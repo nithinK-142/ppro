@@ -25,7 +25,6 @@ export interface LoginData extends SessionData {
   token: string;
 }
 
-export type MeData = SessionData;
 
 export interface RegisterData {
   userId: number;

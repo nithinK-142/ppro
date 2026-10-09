@@ -38,7 +38,6 @@ http://10.0.2.2:4000
 
 `EXPO_PUBLIC_*` values are inlined when the JavaScript bundle is built. After changing `client/.env`, stop Expo with `Ctrl+C` and start it again, or rebuild the APK.
 
-On native Android/iOS builds, `EXPO_PUBLIC_USE_RN_FETCH=1` keeps React Native's built-in `fetch` implementation instead of Expo's global `fetch` implementation.
 
 ## Start
 

@@ -3,13 +3,13 @@ import type { z } from 'zod';
 import { query } from '../config/db.ts';
 import { getSelectedTasks } from '../config/queries.ts';
 import type { UserProfileRow, ProfileRow } from '../types/database.ts';
-import type { DataResponse, MeData } from '../types/api.ts';
+import type { DataResponse, SessionData } from '../types/api.ts';
 import AppError from '../utils/app-error.ts';
 import { profileSchema } from '../validation/profile.ts';
 
 type RouteParams = Record<string, string>;
 type UpdateProfileInput = z.infer<typeof profileSchema>;
-type ProfileHandler = RequestHandler<RouteParams, DataResponse<MeData>>;
+type ProfileHandler = RequestHandler<RouteParams, DataResponse<SessionData>>;
 type UpdateProfileHandler = RequestHandler<RouteParams, DataResponse<ProfileRow>, UpdateProfileInput>;
 
 const getMe: ProfileHandler = async (req, res) => {
