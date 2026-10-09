@@ -1,6 +1,8 @@
 import request from 'supertest';
 import app from '../src/app.ts';
-import { query } from '../src/config/db.ts';
+import { eq } from 'drizzle-orm';
+import { db } from '../src/config/db.ts';
+import { users } from '../src/config/schema.ts';
 import { authHeader, createProfile, createUser, selectTasks, taskId } from './helpers.ts';
 
 describe('profile API', () => {
@@ -46,7 +48,7 @@ describe('profile API', () => {
 
   it('returns unauthorized when the token belongs to a deleted user', async () => {
     const user = await createUser({ email: 'deleted@example.com' });
-    await query('DELETE FROM users WHERE id = $1', [user.id]);
+    await db.delete(users).where(eq(users.id, user.id));
 
     const response = await request(app)
       .get('/api/v1/profile')

@@ -1,9 +1,10 @@
 import request from 'supertest';
 import app from '../src/app.ts';
-import { query } from '../src/config/db.ts';
+import { eq } from 'drizzle-orm';
+import { db } from '../src/config/db.ts';
+import { emailOtps, users } from '../src/config/schema.ts';
 import { generateOtp, hashOtp } from '../src/utils/otp.ts';
 import { authHeader, createProfile, createUser, otpRecord, selectTasks, taskId } from './helpers.ts';
-import type { QueryResultRow } from '@neondatabase/serverless';
 
 const validPassword = 'StrongPass123!';
 
@@ -17,12 +18,12 @@ describe('authentication', () => {
     expect(response.body.data.email).toBe('test@example.com');
     expect(response.body.data.verificationRequired).toBe(true);
 
-    const user = await query<QueryResultRow & { email: string }>('SELECT email FROM users WHERE id = $1', [response.body.data.userId]);
-    expect(user.rows[0]?.email).toBe('test@example.com');
+    const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, response.body.data.userId)).limit(1);
+    expect(user?.email).toBe('test@example.com');
 
     const otp = await otpRecord(response.body.data.userId);
     expect(otp).toMatchObject({ attempts: 0 });
-    expect(otp?.code_hash).toHaveLength(64);
+    expect(otp?.codeHash).toHaveLength(64);
   });
 
   it('rejects duplicate registration for a verified account', async () => {
@@ -52,10 +53,13 @@ describe('authentication', () => {
   it('verifies a valid OTP and removes the OTP record', async () => {
     const user = await createUser({ email: 'verify@example.com', verified: false });
     const code = '123456';
-    await query(
-      'INSERT INTO email_otps (user_id, code_hash, expires_at, attempts, sent_at) VALUES ($1, $2, $3, 0, $4)',
-      [user.id, hashOtp(code), new Date(Date.now() + 600_000).toISOString(), new Date().toISOString()]
-    );
+    await db.insert(emailOtps).values({
+      userId: user.id,
+      codeHash: hashOtp(code),
+      expiresAt: new Date(Date.now() + 600_000),
+      attempts: 0,
+      sentAt: new Date()
+    });
 
     const response = await request(app)
       .post('/api/v1/auth/verify-email')
@@ -65,8 +69,8 @@ describe('authentication', () => {
     expect(response.body.data.verified).toBe(true);
     expect(await otpRecord(user.id)).toBeNull();
 
-    const updated = await query<QueryResultRow & { email_verified_at: string | null }>('SELECT email_verified_at FROM users WHERE id = $1', [user.id]);
-    expect(updated.rows[0]?.email_verified_at).toBeTruthy();
+    const [updated] = await db.select({ emailVerifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, user.id)).limit(1);
+    expect(updated?.emailVerifiedAt).toBeTruthy();
   });
 
   it('accepts repeated verification for an already verified account', async () => {
@@ -91,10 +95,13 @@ describe('authentication', () => {
 
   it('rejects an expired OTP without incrementing attempts', async () => {
     const user = await createUser({ email: 'expired@example.com', verified: false });
-    await query(
-      'INSERT INTO email_otps (user_id, code_hash, expires_at, attempts, sent_at) VALUES ($1, $2, $3, 2, $4)',
-      [user.id, hashOtp('123456'), new Date(Date.now() - 1_000).toISOString(), new Date(Date.now() - 60_000).toISOString()]
-    );
+    await db.insert(emailOtps).values({
+      userId: user.id,
+      codeHash: hashOtp('123456'),
+      expiresAt: new Date(Date.now() - 1_000),
+      attempts: 2,
+      sentAt: new Date(Date.now() - 60_000)
+    });
 
     const response = await request(app)
       .post('/api/v1/auth/verify-email')
@@ -107,10 +114,13 @@ describe('authentication', () => {
 
   it('increments wrong OTP attempts and blocks at the maximum', async () => {
     const user = await createUser({ email: 'otp@example.com', verified: false });
-    await query(
-      'INSERT INTO email_otps (user_id, code_hash, expires_at, attempts, sent_at) VALUES ($1, $2, $3, 0, $4)',
-      [user.id, hashOtp(generateOtp()), new Date(Date.now() + 600_000).toISOString(), new Date().toISOString()]
-    );
+    await db.insert(emailOtps).values({
+      userId: user.id,
+      codeHash: hashOtp(generateOtp()),
+      expiresAt: new Date(Date.now() + 600_000),
+      attempts: 0,
+      sentAt: new Date()
+    });
 
     for (let attempt = 1; attempt <= 5; attempt += 1) {
       const response = await request(app)
@@ -143,10 +153,13 @@ describe('authentication', () => {
 
   it('blocks resend during cooldown', async () => {
     const user = await createUser({ email: 'cooldown@example.com', verified: false });
-    await query(
-      'INSERT INTO email_otps (user_id, code_hash, expires_at, attempts, sent_at) VALUES ($1, $2, $3, 0, $4)',
-      [user.id, hashOtp('123456'), new Date(Date.now() + 600_000).toISOString(), new Date().toISOString()]
-    );
+    await db.insert(emailOtps).values({
+      userId: user.id,
+      codeHash: hashOtp('123456'),
+      expiresAt: new Date(Date.now() + 600_000),
+      attempts: 0,
+      sentAt: new Date()
+    });
 
     const response = await request(app)
       .post('/api/v1/auth/resend-verification')
