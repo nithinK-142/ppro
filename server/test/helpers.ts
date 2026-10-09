@@ -1,8 +1,10 @@
+import { beforeEach } from 'vitest';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { query } from '../src/config/db.ts';
+import { eq } from 'drizzle-orm';
+import { db } from '../src/config/db.ts';
+import { emailOtps, profiles, tasks, userTasks, users } from '../src/config/schema.ts';
 import env from '../src/config/env.ts';
-import type { QueryResultRow } from '@neondatabase/serverless';
 
 type UserOptions = {
   email: string;
@@ -11,19 +13,19 @@ type UserOptions = {
 };
 
 async function resetUserData() {
-  await query('DELETE FROM user_tasks');
-  await query('DELETE FROM profiles');
-  await query('DELETE FROM email_otps');
-  await query('DELETE FROM users');
+  await db.delete(userTasks);
+  await db.delete(profiles);
+  await db.delete(emailOtps);
+  await db.delete(users);
 }
 
 async function createUser({ email, password = 'StrongPass123!', verified = true }: UserOptions) {
   const passwordHash = await bcrypt.hash(password, 4);
-  const result = await query<QueryResultRow & { id: number; email: string; email_verified_at: string | null }>(
-    'INSERT INTO users (email, password_hash, email_verified_at) VALUES ($1, $2, $3) RETURNING id, email, email_verified_at',
-    [email, passwordHash, verified ? new Date().toISOString() : null]
-  );
-  const user = result.rows[0];
+  const [user] = await db.insert(users).values({
+    email,
+    passwordHash,
+    emailVerifiedAt: verified ? new Date() : null
+  }).returning({ id: users.id, email: users.email, emailVerifiedAt: users.emailVerifiedAt });
   if (!user) throw new Error('Failed to create test user');
   return { ...user, password };
 }
@@ -37,26 +39,19 @@ async function createProfile(userId: number, overrides: Partial<{ name: string; 
     ...overrides
   };
 
-  await query(
-    `INSERT INTO profiles (user_id, name, mobile, address, business_name)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [userId, profile.name, profile.mobile, profile.address, profile.businessName]
-  );
-
+  await db.insert(profiles).values({ userId, ...profile });
   return profile;
 }
 
 async function taskId(name: string) {
-  const result = await query<QueryResultRow & { id: number }>('SELECT id FROM tasks WHERE name = $1', [name]);
-  const task = result.rows[0];
+  const [task] = await db.select({ id: tasks.id }).from(tasks).where(eq(tasks.name, name)).limit(1);
   if (!task) throw new Error(`Task not found: ${name}`);
   return task.id;
 }
 
 async function selectTasks(userId: number, ids: number[]) {
-  for (const id of ids) {
-    await query('INSERT INTO user_tasks (user_id, task_id) VALUES ($1, $2)', [userId, id]);
-  }
+  if (!ids.length) return;
+  await db.insert(userTasks).values(ids.map((taskId) => ({ userId, taskId })));
 }
 
 function authToken(userId: number) {
@@ -68,13 +63,13 @@ function authHeader(userId: number) {
 }
 
 async function otpRecord(userId: number) {
-  const result = await query<QueryResultRow & {
-    code_hash: string;
-    expires_at: string;
-    attempts: number;
-    sent_at: string;
-  }>('SELECT code_hash, expires_at, attempts, sent_at FROM email_otps WHERE user_id = $1', [userId]);
-  return result.rows[0] ?? null;
+  const [record] = await db.select({
+    codeHash: emailOtps.codeHash,
+    expiresAt: emailOtps.expiresAt,
+    attempts: emailOtps.attempts,
+    sentAt: emailOtps.sentAt
+  }).from(emailOtps).where(eq(emailOtps.userId, userId)).limit(1);
+  return record ?? null;
 }
 
 async function verifiedUser(email = `user-${Date.now()}-${Math.random().toString(16).slice(2)}@example.com`) {
@@ -84,5 +79,6 @@ async function verifiedUser(email = `user-${Date.now()}-${Math.random().toString
 beforeEach(async () => {
   await resetUserData();
 });
+
 
 export { resetUserData, createUser, createProfile, taskId, selectTasks, authToken, authHeader, otpRecord, verifiedUser };

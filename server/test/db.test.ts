@@ -1,48 +1,49 @@
-import { pingDatabase, query, transaction } from '../src/config/db.ts';
-import { createUser } from './helpers.ts';
+import { describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { db, pingDatabase } from '../src/config/db.ts';
+import { profiles, tasks, userTasks, users } from '../src/config/schema.ts';
+
+const email = `transaction-${Date.now()}@example.com`;
 
 describe('database helpers', () => {
   it('pings the database successfully', async () => {
-    expect(await pingDatabase()).toBe(true);
+    await expect(pingDatabase()).resolves.toBe(true);
   });
 
   it('commits transaction changes', async () => {
-    const user = await transaction(async (tx) => {
-      const result = await tx<{ id: number; email: string }>(
-        'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email',
-        ['transaction@example.com', 'hash']
-      );
-      return result.rows[0];
-    });
+    const [user] = await db.insert(users).values({ email, passwordHash: 'hash' }).returning({ id: users.id });
+    expect(user?.id).toBeTypeOf('number');
 
-    expect(user?.email).toBe('transaction@example.com');
-    const stored = await query<{ id: number }>('SELECT id FROM users WHERE email = $1', ['transaction@example.com']);
-    expect(stored.rows).toHaveLength(1);
+    const rows = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
+    expect(rows).toHaveLength(1);
+
+    await db.delete(users).where(eq(users.email, email));
   });
 
   it('rolls back transaction changes when the callback throws', async () => {
-    await expect(transaction(async (tx) => {
-      await tx('INSERT INTO users (email, password_hash) VALUES ($1, $2)', ['rollback@example.com', 'hash']);
-      throw new Error('rollback test');
-    })).rejects.toThrow('rollback test');
+    const transactionEmail = `rollback-${Date.now()}@example.com`;
 
-    const stored = await query<{ id: number }>('SELECT id FROM users WHERE email = $1', ['rollback@example.com']);
-    expect(stored.rows).toEqual([]);
+    await expect(db.transaction(async (tx) => {
+      await tx.insert(users).values({ email: transactionEmail, passwordHash: 'hash' });
+      throw new Error('rollback');
+    })).rejects.toThrow('rollback');
+
+    const rows = await db.select({ id: users.id }).from(users).where(eq(users.email, transactionEmail));
+    expect(rows).toHaveLength(0);
   });
 
   it('cascades user cleanup to profile and selections', async () => {
-    const user = await createUser({ email: 'cascade@example.com' });
-    const task = await query<{ id: number }>('SELECT id FROM tasks LIMIT 1');
-    const taskId = task.rows[0]?.id;
-    if (!taskId) throw new Error('Task seed missing');
+    const [user] = await db.insert(users).values({ email: `cascade-${Date.now()}@example.com`, passwordHash: 'hash' }).returning({ id: users.id });
+    const [task] = await db.select({ id: tasks.id }).from(tasks).limit(1);
+    if (!user || !task) throw new Error('Failed to prepare cascade test');
 
-    await query('INSERT INTO profiles (user_id, name, mobile, address) VALUES ($1, $2, $3, $4)', [user.id, 'Test User', '+919876543210', 'Bangalore']);
-    await query('INSERT INTO user_tasks (user_id, task_id) VALUES ($1, $2)', [user.id, taskId]);
-    await query('DELETE FROM users WHERE id = $1', [user.id]);
+    await db.insert(profiles).values({ userId: user.id, name: 'Test User', mobile: '+919876543210', address: 'Bangalore' });
+    await db.insert(userTasks).values({ userId: user.id, taskId: task.id });
+    await db.delete(users).where(eq(users.id, user.id));
 
-    const profile = await query('SELECT 1 FROM profiles WHERE user_id = $1', [user.id]);
-    const selection = await query('SELECT 1 FROM user_tasks WHERE user_id = $1', [user.id]);
-    expect(profile.rows).toEqual([]);
-    expect(selection.rows).toEqual([]);
+    const profile = await db.select({ userId: profiles.userId }).from(profiles).where(eq(profiles.userId, user.id));
+    const selection = await db.select({ userId: userTasks.userId }).from(userTasks).where(eq(userTasks.userId, user.id));
+    expect(profile).toHaveLength(0);
+    expect(selection).toHaveLength(0);
   });
 });

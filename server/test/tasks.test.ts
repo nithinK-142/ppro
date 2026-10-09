@@ -1,6 +1,8 @@
 import request from 'supertest';
 import app from '../src/app.ts';
-import { query } from '../src/config/db.ts';
+import { asc } from 'drizzle-orm';
+import { db } from '../src/config/db.ts';
+import { tasks } from '../src/config/schema.ts';
 import { authHeader, createUser, selectTasks, taskId } from './helpers.ts';
 
 describe('tasks API', () => {
@@ -123,8 +125,8 @@ describe('tasks API', () => {
 
   it('accepts up to 30 selected tasks', async () => {
     const user = await createUser({ email: 'max-selection@example.com' });
-    const result = await query<{ id: number }>('SELECT id FROM tasks ORDER BY id LIMIT 30');
-    const ids = result.rows.map((row) => row.id);
+    const result = await db.select({ id: tasks.id }).from(tasks).orderBy(asc(tasks.id)).limit(30);
+    const ids = result.map((row) => row.id);
 
     const response = await request(app)
       .put('/api/v1/tasks/selected')

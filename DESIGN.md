@@ -12,9 +12,9 @@
 
 ## Data and Authentication
 
-- Neon PostgreSQL stores the backend data through the server-side database client.
+- Neon PostgreSQL stores the backend data through Drizzle ORM using the Neon serverless driver.
 
-- The database keeps users, OTPs, profiles, tasks, and task selections in separate tables, with foreign keys and indexes.
+- `src/config/schema.ts` is the typed Drizzle model for users, OTPs, profiles, tasks, and task selections. Foreign keys and indexes remain enforced by PostgreSQL in `src/config/schema.sql`.
 
 - Profiles store Name, Indian mobile number, Address, and Business Name. Business Name is optional because not every household has a business name.
 
@@ -89,6 +89,8 @@ The implemented flow covers:
 - Logout
 
 ## Trade-offs
+
+- **Database access:** Typed PostgreSQL queries keep data access readable as the codebase grows. Handwritten SQL is simple for a small project, but a large number of raw queries and parameter lists can become harder to read and maintain. The existing `schema.sql` remains as the startup bootstrap instead of adding a migration runtime for this small assignment.
 
 - **JWT sessions:** Stateless and simple. Tokens cannot be revoked before expiry.
 - **OTP stored as a hash:** Safer if the database is exposed. The original OTP cannot be retrieved later.

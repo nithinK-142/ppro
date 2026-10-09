@@ -1,4 +1,5 @@
-import { transaction } from './db.ts';
+import { db, initializeDatabase } from './db.ts';
+import { tasks as tasksTable } from './schema.ts';
 import logger from '../utils/logger.ts';
 
 const tasks = [
@@ -35,14 +36,11 @@ const tasks = [
 ] as const;
 
 async function seedTasks() {
-  await transaction(async (query) => {
-    for (const [category, name, description] of tasks) {
-      await query(
-        'INSERT INTO tasks (category, name, description) VALUES ($1, $2, $3) ON CONFLICT(name) DO NOTHING',
-        [category, name, description]
-      );
-    }
-  });
+  await initializeDatabase();
+
+  await db.insert(tasksTable).values(
+    tasks.map(([category, name, description]) => ({ category, name, description }))
+  ).onConflictDoNothing({ target: tasksTable.name });
 
   logger.info({ count: tasks.length }, 'catalogue seeded');
 }
