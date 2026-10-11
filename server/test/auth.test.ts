@@ -1,5 +1,11 @@
 import request from 'supertest';
 import { beforeEach, vi } from 'vitest';
+import app from '../src/app.ts';
+import { eq } from 'drizzle-orm';
+import { db } from '../src/config/db.ts';
+import { emailOtps, users } from '../src/config/schema.ts';
+import { generateOtp, hashOtp } from '../src/utils/otp.ts';
+import { authHeader, createProfile, createUser, otpRecord, selectTasks, taskId } from './helpers.ts';
 
 const { sendOtpMock } = vi.hoisted(() => ({ sendOtpMock: vi.fn() }));
 vi.mock('../src/utils/mailer.ts', () => ({ sendOtp: sendOtpMock }));
@@ -7,12 +13,6 @@ vi.mock('../src/utils/mailer.ts', () => ({ sendOtp: sendOtpMock }));
 beforeEach(() => {
   sendOtpMock.mockReset().mockResolvedValue(undefined);
 });
-import app from '../src/app.ts';
-import { eq } from 'drizzle-orm';
-import { db } from '../src/config/db.ts';
-import { emailOtps, users } from '../src/config/schema.ts';
-import { generateOtp, hashOtp } from '../src/utils/otp.ts';
-import { authHeader, createProfile, createUser, otpRecord, selectTasks, taskId } from './helpers.ts';
 
 const validPassword = 'StrongPass123!';
 
