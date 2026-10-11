@@ -1,10 +1,18 @@
 import request from 'supertest';
+import { beforeEach, vi } from 'vitest';
 import app from '../src/app.ts';
 import { eq } from 'drizzle-orm';
 import { db } from '../src/config/db.ts';
 import { emailOtps, users } from '../src/config/schema.ts';
 import { generateOtp, hashOtp } from '../src/utils/otp.ts';
 import { authHeader, createProfile, createUser, otpRecord, selectTasks, taskId } from './helpers.ts';
+
+const { sendOtpMock } = vi.hoisted(() => ({ sendOtpMock: vi.fn() }));
+vi.mock('../src/utils/mailer.ts', () => ({ sendOtp: sendOtpMock }));
+
+beforeEach(() => {
+  sendOtpMock.mockReset().mockResolvedValue(undefined);
+});
 
 const validPassword = 'StrongPass123!';
 
@@ -24,6 +32,19 @@ describe('authentication', () => {
     const otp = await otpRecord(response.body.data.userId);
     expect(otp).toMatchObject({ attempts: 0 });
     expect(otp?.codeHash).toHaveLength(64);
+    expect(sendOtpMock).toHaveBeenCalledWith('test@example.com', expect.stringMatching(/^\d{6}$/));
+  });
+
+  it('keeps registration successful when the email provider fails', async () => {
+    sendOtpMock.mockRejectedValueOnce(new Error('mail provider unavailable'));
+
+    const response = await request(app)
+      .post('/api/v1/auth/register')
+      .send({ email: 'mail-failure@example.com', password: validPassword, confirmPassword: validPassword })
+      .expect(201);
+
+    expect(response.body.data.verificationRequired).toBe(true);
+    expect(sendOtpMock).toHaveBeenCalledOnce();
   });
 
   it('rejects duplicate registration for a verified account', async () => {
