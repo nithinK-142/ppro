@@ -7,4 +7,10 @@ declare global {
   }
 }
 
+declare module 'http' {
+  interface IncomingMessage {
+    requestId: string;
+  }
+}
+
 export {};
