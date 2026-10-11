@@ -166,15 +166,12 @@ importers:
 
   .:
     dependencies:
-      '@neondatabase/serverless':
-        specifier: ^1.2.0
-        version: 1.2.0
       drizzle-orm:
         specifier: ^0.45.3
         version: 0.45.3
-      '@vercel/functions':
-        specifier: ^3.6.2
-        version: 3.9.11
+      pg:
+        specifier: ^8.16.3
+        version: 8.16.3
       bcrypt:
         specifier: ^6.0.0
         version: 6.0.0
@@ -221,6 +218,9 @@ importers:
       '@types/node':
         specifier: 26.6.3
         version: 26.6.3
+      '@types/pg':
+        specifier: ^8.15.5
+        version: 8.15.5
       '@types/supertest':
         specifier: ^7.2.1
         version: 7.2.1
@@ -424,6 +424,86 @@ packages:
 
   '@types/supertest@7.2.1':
     resolution: {integrity: sha512-4CbBvoYVLHL7+yhbYrZET0vsvuyXTC05aRe7dNQkwMzm56auceoy6Yu3K50uZmwfHna1os3CMSgM/3QVkUtPTw==}
+
+  '@types/pg@8.15.5':
+    resolution: {tarball: https://registry.npmjs.org/@types/pg/-/pg-8.15.5.tgz}
+    dependencies:
+      '@types/node': '*'
+      pg-protocol: '*'
+      pg-types: ^2.2.0
+
+  pg@8.16.3:
+    resolution: {integrity: sha512-enxc1h0jA/aq5oSDMvqyW3q89ra6XIIDZgCX9vkMrnz5DFTw/Ny3Li2lFQ+pt3L6MCgm/5o2o8HW9hiJji+xvw==}
+    engines: {node: '>= 16.0.0'}
+    dependencies:
+      pg-connection-string: 2.9.1
+      pg-pool: 3.10.1(pg@8.16.3)
+      pg-protocol: 1.10.3
+      pg-types: 2.2.0
+      pgpass: 1.0.5
+    optionalDependencies:
+      pg-cloudflare: 1.2.7
+    peerDependencies:
+      pg-native: '>=3.0.1'
+    peerDependenciesMeta:
+      pg-native:
+        optional: true
+
+  pg-cloudflare@1.2.7:
+    resolution: {tarball: https://registry.npmjs.org/pg-cloudflare/-/pg-cloudflare-1.2.7.tgz}
+    optional: true
+
+  pg-connection-string@2.9.1:
+    resolution: {tarball: https://registry.npmjs.org/pg-connection-string/-/pg-connection-string-2.9.1.tgz}
+
+  pg-int8@1.0.1:
+    resolution: {tarball: https://registry.npmjs.org/pg-int8/-/pg-int8-1.0.1.tgz}
+    engines: {node: '>=4.0.0'}
+
+  pg-pool@3.10.1:
+    resolution: {tarball: https://registry.npmjs.org/pg-pool/-/pg-pool-3.10.1.tgz}
+    peerDependencies:
+      pg: '>=8.0'
+
+  pg-protocol@1.10.3:
+    resolution: {tarball: https://registry.npmjs.org/pg-protocol/-/pg-protocol-1.10.3.tgz}
+
+  pg-types@2.2.0:
+    resolution: {tarball: https://registry.npmjs.org/pg-types/-/pg-types-2.2.0.tgz}
+    dependencies:
+      pg-int8: 1.0.1
+      postgres-array: 2.0.0
+      postgres-bytea: 1.0.1
+      postgres-date: 1.0.7
+      postgres-interval: 1.2.0
+    engines: {node: '>=4'}
+
+  pgpass@1.0.5:
+    resolution: {tarball: https://registry.npmjs.org/pgpass/-/pgpass-1.0.5.tgz}
+    dependencies:
+      split2: 4.2.0
+
+  postgres-array@2.0.0:
+    resolution: {tarball: https://registry.npmjs.org/postgres-array/-/postgres-array-2.0.0.tgz}
+    engines: {node: '>=4'}
+
+  postgres-bytea@1.0.1:
+    resolution: {tarball: https://registry.npmjs.org/postgres-bytea/-/postgres-bytea-1.0.1.tgz}
+    engines: {node: '>=0.10.0'}
+
+  postgres-date@1.0.7:
+    resolution: {tarball: https://registry.npmjs.org/postgres-date/-/postgres-date-1.0.7.tgz}
+    engines: {node: '>=0.10.0'}
+
+  postgres-interval@1.2.0:
+    resolution: {tarball: https://registry.npmjs.org/postgres-interval/-/postgres-interval-1.2.0.tgz}
+    dependencies:
+      xtend: 4.0.2
+    engines: {node: '>=0.10.0'}
+
+  xtend@4.0.2:
+    resolution: {tarball: https://registry.npmjs.org/xtend/-/xtend-4.0.2.tgz}
+    engines: {node: '>=0.4'}
 
   '@vercel/cli-config@0.3.1':
     resolution: {integrity: sha512-sISbygqlFXYb8qfPu/+2Cf/A8IjrlAuZePdag3EDQr2PRA455s7UZtl9Ro674CWsB/saBRmz3jEkw0YsQs8OoQ==}
@@ -1410,6 +1490,56 @@ snapshots:
     dependencies:
       '@types/methods': 1.1.4
       '@types/superagent': 8.1.11
+
+  '@types/pg@8.15.5':
+    dependencies:
+      '@types/node': 26.6.3
+      pg-protocol: 1.10.3
+      pg-types: 2.2.0
+
+  pg@8.16.3:
+    dependencies:
+      pg-connection-string: 2.9.1
+      pg-pool: 3.10.1(pg@8.16.3)
+      pg-protocol: 1.10.3
+      pg-types: 2.2.0
+      pgpass: 1.0.5
+    optionalDependencies:
+      pg-cloudflare: 1.2.7
+
+  pg-cloudflare@1.2.7: {}
+
+  pg-connection-string@2.9.1: {}
+
+  pg-int8@1.0.1: {}
+
+  pg-pool@3.10.1(pg@8.16.3): {}
+
+  pg-protocol@1.10.3: {}
+
+  pg-types@2.2.0:
+    dependencies:
+      pg-int8: 1.0.1
+      postgres-array: 2.0.0
+      postgres-bytea: 1.0.1
+      postgres-date: 1.0.7
+      postgres-interval: 1.2.0
+
+  pgpass@1.0.5:
+    dependencies:
+      split2: 4.2.0
+
+  postgres-array@2.0.0: {}
+
+  postgres-bytea@1.0.1: {}
+
+  postgres-date@1.0.7: {}
+
+  postgres-interval@1.2.0:
+    dependencies:
+      xtend: 4.0.2
+
+  xtend@4.0.2: {}
 
   '@vercel/cli-config@0.3.1':
     dependencies:
