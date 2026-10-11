@@ -1,6 +1,5 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { waitUntil } from '@vercel/functions';
 import type { Request, RequestHandler } from 'express';
 import type { z } from 'zod';
 import { eq } from 'drizzle-orm';
@@ -34,16 +33,13 @@ function otpWindow() {
   return { sentAt, expiresAt };
 }
 
-function sendVerificationCode(req: Request, email: string, code: string, userId: number, event: 'auth.otp_sent' | 'auth.otp_resent') {
-  waitUntil(
-    sendOtp(email, code)
-      .then(() => {
-        req.log.info({ event, userId }, 'verification code sent');
-      })
-      .catch((err) => {
-        req.log.error({ err, event: 'auth.otp_send_failed', userId }, 'failed to send verification code');
-      })
-  );
+async function sendVerificationCode(req: Request, email: string, code: string, userId: number, event: 'auth.otp_sent' | 'auth.otp_resent') {
+  try {
+    await sendOtp(email, code);
+    req.log.info({ event, userId }, 'verification code sent');
+  } catch (err) {
+    req.log.error({ err, event: 'auth.otp_send_failed', userId }, 'failed to send verification code');
+  }
 }
 
 const register: RegisterHandler = async (req, res) => {
@@ -77,7 +73,7 @@ const register: RegisterHandler = async (req, res) => {
 
   req.log.info({ event: 'auth.registered', userId }, 'user registered');
 
-  sendVerificationCode(req, email, code, userId, 'auth.otp_sent');
+  await sendVerificationCode(req, email, code, userId, 'auth.otp_sent');
 
   res.status(201).json({
     data: { userId, email, verificationRequired: true }
@@ -149,7 +145,7 @@ const resendVerification: ResendHandler = async (req, res) => {
     set: { codeHash: hashOtp(code), expiresAt, attempts: 0, sentAt }
   });
 
-  sendVerificationCode(req, email, code, user.id, 'auth.otp_resent');
+  await sendVerificationCode(req, email, code, user.id, 'auth.otp_resent');
 
   res.json({ data: { sent: true } });
 };
