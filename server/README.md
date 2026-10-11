@@ -11,6 +11,20 @@ cp .env.example .env
 
 Set `DATABASE_URL` and the other required environment variables in `.env`.
 
+## Database configuration
+
+The application uses the standard `pg` driver and Drizzle's `node-postgres` adapter. It supports compatible PostgreSQL providers through `DATABASE_URL`; use any TLS or connection parameters required by your provider.
+
+If your provider offers direct and pooled endpoints, choose according to its guidance and your hosting model. Pool limits apply to each API process or instance, not the whole deployment.
+
+| Variable | Default | Purpose |
+| --- | ---: | --- |
+| `DATABASE_POOL_MAX` | `5` | Maximum pooled clients per process |
+| `DATABASE_IDLE_TIMEOUT_MS` | `10000` | Evict idle clients after this many milliseconds; `0` disables idle eviction |
+| `DATABASE_CONNECTION_TIMEOUT_MS` | `10000` | Maximum time to wait while opening a connection |
+
+Set these values according to provider connection limits and the number of running instances.
+
 ## Start
 
 Run the API normally:
@@ -25,13 +39,16 @@ For local development with watch mode:
 pnpm dev
 ```
 
-## Vercel
+## Deployment
 
-This Express API deploys to Vercel with zero configuration. The Vercel entrypoint is `src/server.ts`.
+Run the API on a Node.js host that supports the required Node.js version and can reach the configured PostgreSQL service and Mailjet API. Configure environment variables through the host's environment-variable settings or secret manager; do not commit production credentials.
 
-Add these environment variables in Vercel Project Settings → Environment Variables:
+Set the following variables in the deployment environment:
 
 - `DATABASE_URL`
+- `DATABASE_POOL_MAX`
+- `DATABASE_IDLE_TIMEOUT_MS`
+- `DATABASE_CONNECTION_TIMEOUT_MS`
 - `JWT_SECRET`
 - `JWT_EXPIRES_IN`
 - `OTP_SECRET`
@@ -48,15 +65,11 @@ Add these environment variables in Vercel Project Settings → Environment Varia
 - `TRUST_PROXY`
 - `LOG_LEVEL`
 
-Set `NODE_ENV=production`.
-
-The APK should use the deployed Vercel URL as its API base URL, for example `https://your-project.vercel.app`.
-
-Vercel environment variables are configured outside the repository. Redeploy after changing them.
+Set `NODE_ENV=production`. Configure the client to use the deployed API's base URL. Restart or redeploy after changing environment variables.
 
 ## Docker
 
-Docker uses the same Neon PostgreSQL database through `DATABASE_URL`.
+Docker uses the PostgreSQL service configured by `DATABASE_URL`; the application does not require a provider-specific database SDK.
 
 ```sh
 # Build the  image
@@ -93,7 +106,7 @@ register → verify email → login → profile → choose tasks → home
 
 OTP verification is required before login.
 
-Registration and OTP resend persist the OTP before returning and dispatch the email in the background. Check `auth.otp_sent` or `auth.otp_send_failed` logs when debugging delivery.
+Registration and OTP resend persist the OTP, then await the Mailjet send attempt before responding. The attempt is bounded by `MAILJET_TIMEOUT_MS`. Delivery failure is logged; users can request another code. Email delivery is awaited rather than delegated to a host-specific background-work API.
 
 ## API
 
@@ -137,7 +150,7 @@ Authorization and cookies are redacted from logs.
 
 ## Data
 
-Neon PostgreSQL stores application data through Drizzle ORM on top of the Neon serverless driver.
+A compatible PostgreSQL service stores application data through Drizzle ORM and the standard `pg` driver. The application does not depend on a Neon-specific database SDK.
 
 `src/config/schema.ts` defines the typed PostgreSQL tables used by application queries. `src/config/schema.sql` remains the startup schema bootstrap so the assignment still initializes a fresh database without a separate migration step.
 
