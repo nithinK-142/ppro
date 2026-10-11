@@ -12,7 +12,7 @@
 
 ## Data and Authentication
 
-- Neon PostgreSQL stores the backend data through Drizzle ORM using the Neon serverless driver.
+- A compatible PostgreSQL service stores backend data through Drizzle ORM and the standard `pg` driver. Database-specific behavior is configured through the connection URL and connection options, not a provider SDK.
 
 - `src/config/schema.ts` is the typed Drizzle model for users, OTPs, profiles, tasks, and task selections. Foreign keys and indexes remain enforced by PostgreSQL in `src/config/schema.sql`.
 
