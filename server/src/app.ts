@@ -1,5 +1,5 @@
 import express from 'express';
-import helmet from 'helmet';
+import { createRequire } from 'node:module';
 import cors from 'cors';
 import env from './config/env.ts';
 import requestId from './middleware/request-id.ts';
@@ -11,6 +11,11 @@ import healthRoutes from './routes/health.ts';
 import authRoutes from './routes/auth.ts';
 import profileRoutes from './routes/profile.ts';
 import taskRoutes from './routes/tasks.ts';
+
+const require = createRequire(import.meta.url);
+const helmet = require('helmet') as (
+  options?: import('helmet').HelmetOptions
+) => import('express').RequestHandler;
 
 const app = express();
 app.disable('x-powered-by');
