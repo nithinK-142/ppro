@@ -22,8 +22,13 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   expires_at TIMESTAMPTZ NOT NULL,
   revoked_at TIMESTAMPTZ,
   replaced_by_hash TEXT,
+  rotation_attempt_id TEXT,
+  rotation_response TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS rotation_attempt_id TEXT;
+ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS rotation_response TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family_id ON refresh_tokens(family_id);

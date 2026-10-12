@@ -24,6 +24,8 @@ export const refreshTokens = pgTable('refresh_tokens', {
   expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
   revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
   replacedByHash: text('replaced_by_hash'),
+  rotationAttemptId: text('rotation_attempt_id'),
+  rotationResponse: text('rotation_response'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
 }, (table) => [
   index('idx_refresh_tokens_user_id').on(table.userId),

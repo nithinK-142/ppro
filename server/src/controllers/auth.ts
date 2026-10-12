@@ -197,16 +197,16 @@ const login: LoginHandler = async (req, res) => {
 };
 
 const refreshSession: RefreshHandler = async (req, res) => {
-  const result = await rotateRefreshToken(req.body.refreshToken);
+  const result = await rotateRefreshToken(req.body.refreshToken, req.body.refreshAttemptId);
 
-  if (result.status !== 'rotated') {
+  if (result.status !== 'rotated' && result.status !== 'replayed') {
     if (result.status === 'reused') {
       req.log.warn({ event: 'auth.refresh_token_reuse_detected', userId: result.userId }, 'revoked refresh token was reused; session family revoked');
     }
     throw new AppError(401, 'INVALID_REFRESH_TOKEN', 'Refresh token is invalid or expired. Sign in again.');
   }
 
-  req.log.info({ event: 'auth.token_refreshed', userId: result.userId }, 'access token refreshed');
+  req.log.info({ event: result.status === 'replayed' ? 'auth.token_refresh_replayed' : 'auth.token_refreshed', userId: result.userId }, result.status === 'replayed' ? 'returned prior refresh result' : 'access token refreshed');
   disableResponseCaching(res);
   res.json({ data: result.tokens });
 };

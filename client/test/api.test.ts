@@ -4,6 +4,7 @@ import { ApiError, jsonRequest, request, subscribeToAuthExpiry } from '../src/ap
 const tokenApi = vi.hoisted(() => ({
   getAccessToken: vi.fn(async () => 'token-123' as string | null),
   getRefreshToken: vi.fn(async () => null as string | null),
+  getRefreshAttemptId: vi.fn(async () => 'refresh-attempt-000001' as string | null),
   setTokens: vi.fn(async (_accessToken: string, _refreshToken: string) => undefined),
   clearTokens: vi.fn(async () => undefined)
 }));
@@ -20,6 +21,7 @@ describe('API client', () => {
     currentAccessToken = 'token-123';
     tokenApi.getAccessToken.mockImplementation(async () => currentAccessToken);
     tokenApi.getRefreshToken.mockResolvedValue(null);
+    tokenApi.getRefreshAttemptId.mockResolvedValue('refresh-attempt-000001');
     tokenApi.setTokens.mockImplementation(async (accessToken) => { currentAccessToken = accessToken; });
   });
 
@@ -62,6 +64,28 @@ describe('API client', () => {
     expect(tokenApi.setTokens).toHaveBeenCalledWith('access-token-2', 'refresh-token-2');
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[2][1].headers.get('Authorization')).toBe('Bearer access-token-2');
+  });
+
+  it('reuses the same refresh attempt after the server response is lost', async () => {
+    currentAccessToken = 'expired-access-token';
+    tokenApi.getRefreshToken.mockResolvedValue('refresh-token-1');
+    tokenApi.getRefreshAttemptId.mockResolvedValue('refresh-attempt-000001');
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: 'INVALID_TOKEN', message: 'Expired' } }), { status: 401 }))
+      .mockRejectedValueOnce(new Error('response connection closed'))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: 'INVALID_TOKEN', message: 'Expired' } }), { status: 401 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { accessToken: 'access-token-2', refreshToken: 'refresh-token-2' } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(request('/api/v1/profile')).rejects.toMatchObject({ code: 'NETWORK_ERROR', status: 0 });
+    await expect(request('/api/v1/profile')).resolves.toEqual({ ok: true });
+
+    const firstRefreshBody = JSON.parse(fetchMock.mock.calls[1][1].body as string);
+    const retryRefreshBody = JSON.parse(fetchMock.mock.calls[3][1].body as string);
+    expect(firstRefreshBody).toEqual({ refreshToken: 'refresh-token-1', refreshAttemptId: 'refresh-attempt-000001' });
+    expect(retryRefreshBody).toEqual(firstRefreshBody);
+    expect(tokenApi.clearTokens).not.toHaveBeenCalled();
   });
 
   it('clears local session when the refresh token is rejected', async () => {

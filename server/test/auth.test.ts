@@ -283,10 +283,11 @@ describe('authentication', () => {
       .send({ email: user.email, password: validPassword })
       .expect(200);
     const firstRefreshToken = loginResponse.body.data.refreshToken as string;
+    const refreshAttemptId = 'refresh-attempt-000001';
 
     const refreshResponse = await request(app)
       .post('/api/v1/auth/refresh')
-      .send({ refreshToken: firstRefreshToken })
+      .send({ refreshToken: firstRefreshToken, refreshAttemptId })
       .expect(200);
 
     expect(refreshResponse.body.data.accessToken).toEqual(expect.any(String));
@@ -298,9 +299,15 @@ describe('authentication', () => {
     expect(firstRecord?.revokedAt).toBeTruthy();
     expect(firstRecord?.replacedByHash).toBe(createHash('sha256').update(refreshResponse.body.data.refreshToken).digest('hex'));
 
+    const recoveredResponse = await request(app)
+      .post('/api/v1/auth/refresh')
+      .send({ refreshToken: firstRefreshToken, refreshAttemptId })
+      .expect(200);
+    expect(recoveredResponse.body.data).toEqual(refreshResponse.body.data);
+
     await request(app)
       .post('/api/v1/auth/refresh')
-      .send({ refreshToken: firstRefreshToken })
+      .send({ refreshToken: firstRefreshToken, refreshAttemptId: 'refresh-attempt-000002' })
       .expect(401);
 
     const activeHash = createHash('sha256').update(refreshResponse.body.data.refreshToken).digest('hex');
