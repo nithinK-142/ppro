@@ -50,7 +50,8 @@ Set the following variables in the deployment environment:
 - `DATABASE_IDLE_TIMEOUT_MS`
 - `DATABASE_CONNECTION_TIMEOUT_MS`
 - `JWT_SECRET`
-- `JWT_EXPIRES_IN`
+- `ACCESS_TOKEN_EXPIRES_IN`
+- `REFRESH_TOKEN_TTL_DAYS`
 - `OTP_SECRET`
 - `OTP_EXPIRES_MINUTES`
 - `OTP_RESEND_SECONDS`
@@ -124,6 +125,8 @@ Auth:
 - `POST /api/v1/auth/verify-email`
 - `POST /api/v1/auth/resend-verification`
 - `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
 
 Profile:
 
@@ -138,7 +141,7 @@ Tasks:
 
 ## Security
 
-Authentication uses JWT.
+Authentication uses short-lived HS256 access JWTs (15 minutes by default) and opaque refresh tokens (30-day absolute session lifetime by default). Configure `ACCESS_TOKEN_EXPIRES_IN` and `REFRESH_TOKEN_TTL_DAYS` to change those defaults; `JWT_EXPIRES_IN` no longer controls access-token expiry. Refresh tokens are stored as SHA-256 hashes, rotated on use, and revoked on logout. Reuse of a rotated token revokes that session family.
 
 Passwords are hashed with bcrypt.
 
@@ -171,7 +174,7 @@ pnpm build
 pnpm test
 ```
 
-Tests cover OTP generation, hashing, expiry, resend timing, wrong-attempt limits, and verified-user login.
+Tests cover OTP generation, hashing, expiry, resend timing, wrong-attempt limits, verified-user login, refresh-token hashing and rotation, replay revocation, and logout revocation.
 
 ## Mail
 

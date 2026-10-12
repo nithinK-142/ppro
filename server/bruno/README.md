@@ -11,4 +11,4 @@ Run the requests in this order:
 5. Profile
 6. Tasks
 
-Login saves the JWT to `token`. Test values live in `environments/local.bru`.
+Login saves the access JWT to `token` and the rotating refresh token to `refreshToken`. Use **Auth - Refresh tokens** to rotate both values, then **Auth - Logout** to revoke that session family. Test values live in `environments/local.bru`.
