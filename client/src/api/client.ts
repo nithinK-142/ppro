@@ -1,4 +1,4 @@
-import { clearTokens, getAccessToken, getRefreshToken, setTokens } from '../storage/token';
+import { clearTokens, getAccessToken, getRefreshToken, getRefreshAttemptId, setTokens } from '../storage/token';
 import { logger } from '../utils/logger';
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
@@ -76,6 +76,12 @@ async function refreshAccessToken(): Promise<string> {
         throw new ApiError('Session expired. Sign in again.', 'INVALID_REFRESH_TOKEN', 401);
       }
 
+      const refreshAttemptId = await getRefreshAttemptId();
+      if (!refreshAttemptId) {
+        await expireLocalSession();
+        throw new ApiError('Session expired. Sign in again.', 'INVALID_REFRESH_TOKEN', 401);
+      }
+
       const requestId = createRequestId();
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -88,7 +94,7 @@ async function refreshAccessToken(): Promise<string> {
             'Content-Type': 'application/json',
             'X-Request-Id': requestId
           },
-          body: JSON.stringify({ refreshToken }),
+          body: JSON.stringify({ refreshToken, refreshAttemptId }),
           signal: controller.signal
         });
       } catch (error: unknown) {
@@ -124,17 +130,17 @@ async function refreshAccessToken(): Promise<string> {
 
       const tokens = body?.data;
       if (!tokens?.accessToken || !tokens.refreshToken) {
-        await expireLocalSession();
-        throw new ApiError('Invalid token refresh response.', 'INVALID_REFRESH_RESPONSE', 502, { requestId: responseRequestId });
+        // The server may have rotated the token before the response was lost or truncated.
+        // Keep the old refresh token and attempt ID so the same rotation can be recovered.
+        throw new ApiError('Invalid token refresh response. Retry the request.', 'INVALID_REFRESH_RESPONSE', 502, { requestId: responseRequestId });
       }
 
       try {
         await setTokens(tokens.accessToken, tokens.refreshToken);
       } catch {
-        // The server has already consumed the previous refresh token. Do not retain
-        // a stale local session if SecureStore cannot persist the rotated token.
-        await expireLocalSession();
-        throw new ApiError('Could not save the renewed session. Sign in again.', 'TOKEN_STORAGE_FAILED', 0, { requestId: responseRequestId });
+        // Keep the attempt ID. If the response or storage write was interrupted,
+        // the server can return the same rotation on the next refresh request.
+        throw new ApiError('Could not save the renewed session. Retry the request.', 'TOKEN_STORAGE_FAILED', 0, { requestId: responseRequestId });
       }
       logger.info('auth.tokens_rotated', { requestId: responseRequestId });
       return tokens.accessToken;
