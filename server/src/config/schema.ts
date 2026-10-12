@@ -1,4 +1,4 @@
-import { integer, pgTable, primaryKey, serial, text, timestamp, index } from 'drizzle-orm/pg-core';
+import { integer, pgTable, primaryKey, serial, text, timestamp, index, uuid } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: serial().primaryKey(),
@@ -15,6 +15,21 @@ export const emailOtps = pgTable('email_otps', {
   attempts: integer().notNull().default(0),
   sentAt: timestamp('sent_at', { withTimezone: true, mode: 'date' }).notNull()
 });
+
+export const refreshTokens = pgTable('refresh_tokens', {
+  id: serial().primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  familyId: uuid('family_id').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+  revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+  replacedByHash: text('replaced_by_hash'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
+}, (table) => [
+  index('idx_refresh_tokens_user_id').on(table.userId),
+  index('idx_refresh_tokens_family_id').on(table.familyId),
+  index('idx_refresh_tokens_expires_at').on(table.expiresAt)
+]);
 
 export const profiles = pgTable('profiles', {
   userId: integer('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
