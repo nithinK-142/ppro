@@ -13,8 +13,10 @@ const authenticate: RequestHandler = (req, _res, next) => {
   }
 
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET);
-    if (typeof payload === 'string' || !payload.sub) throw new Error('Invalid subject');
+    const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] });
+    if (typeof payload === 'string' || !payload.sub || payload.tokenUse !== 'access') {
+      throw new Error('Invalid access token');
+    }
     const userId = Number(payload.sub);
     if (!Number.isInteger(userId) || userId <= 0) throw new Error('Invalid subject');
     req.userId = userId;

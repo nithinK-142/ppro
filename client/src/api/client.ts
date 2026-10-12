@@ -1,4 +1,4 @@
-import { getToken } from '../storage/token';
+import { clearTokens, getAccessToken, getRefreshToken, setTokens } from '../storage/token';
 import { logger } from '../utils/logger';
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
@@ -33,9 +33,121 @@ type ErrorBody = {
 };
 
 type ResponseBody<T> = { data?: T } & ErrorBody;
+type TokenPair = { accessToken: string; refreshToken: string };
 
-export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = await getToken();
+let refreshInFlight: Promise<string> | null = null;
+const authExpiryListeners = new Set<() => void>();
+
+function notifyAuthExpired() {
+  for (const listener of authExpiryListeners) listener();
+}
+
+async function expireLocalSession() {
+  try {
+    await clearTokens();
+  } finally {
+    notifyAuthExpired();
+  }
+}
+
+export function subscribeToAuthExpiry(listener: () => void) {
+  authExpiryListeners.add(listener);
+  return () => {
+    authExpiryListeners.delete(listener);
+  };
+}
+
+function errorFromResponse<T>(body: ResponseBody<T> | null, response: Response, requestId: string) {
+  const error = body?.error;
+  return new ApiError(
+    error?.message || 'Request failed. Try again.',
+    error?.code || 'REQUEST_FAILED',
+    response.status,
+    { ...(error?.details || {}), requestId }
+  );
+}
+
+async function refreshAccessToken(): Promise<string> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      const refreshToken = await getRefreshToken();
+      if (!refreshToken) {
+        await expireLocalSession();
+        throw new ApiError('Session expired. Sign in again.', 'INVALID_REFRESH_TOKEN', 401);
+      }
+
+      const requestId = createRequestId();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      let response: Response;
+      try {
+        response = await fetch(`${apiUrl}/api/v1/auth/refresh`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-Request-Id': requestId
+          },
+          body: JSON.stringify({ refreshToken }),
+          signal: controller.signal
+        });
+      } catch (error: unknown) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        const timedOut = err.name === 'AbortError';
+        logger.error(timedOut ? 'auth.refresh_timeout' : 'auth.refresh_network_error', {
+          requestId,
+          message: err.message
+        });
+        throw new ApiError(
+          timedOut ? 'Request timed out. Check your connection and try again.' : 'Network error. Check your connection and try again.',
+          timedOut ? 'TIMEOUT' : 'NETWORK_ERROR',
+          0,
+          { requestId }
+        );
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      const body = await response.json().catch(() => null) as ResponseBody<TokenPair> | null;
+      const responseRequestId = response.headers.get('X-Request-Id') || requestId;
+      if (!response.ok) {
+        logger.warn('auth.refresh_failed', {
+          requestId: responseRequestId,
+          status: response.status,
+          code: body?.error?.code || 'REQUEST_FAILED'
+        });
+        if (response.status === 401) {
+          await expireLocalSession();
+        }
+        throw errorFromResponse(body, response, responseRequestId);
+      }
+
+      const tokens = body?.data;
+      if (!tokens?.accessToken || !tokens.refreshToken) {
+        await expireLocalSession();
+        throw new ApiError('Invalid token refresh response.', 'INVALID_REFRESH_RESPONSE', 502, { requestId: responseRequestId });
+      }
+
+      try {
+        await setTokens(tokens.accessToken, tokens.refreshToken);
+      } catch {
+        // The server has already consumed the previous refresh token. Do not retain
+        // a stale local session if SecureStore cannot persist the rotated token.
+        await expireLocalSession();
+        throw new ApiError('Could not save the renewed session. Sign in again.', 'TOKEN_STORAGE_FAILED', 0, { requestId: responseRequestId });
+      }
+      logger.info('auth.tokens_rotated', { requestId: responseRequestId });
+      return tokens.accessToken;
+    })().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+
+  return refreshInFlight;
+}
+
+async function requestInternal<T>(path: string, options: RequestInit, allowRefresh: boolean): Promise<T> {
+  const token = await getAccessToken();
   const requestId = createRequestId();
   const method = (options.method ?? 'GET').toUpperCase();
   const startedAt = Date.now();
@@ -45,6 +157,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   headers.set('Content-Type', 'application/json');
   headers.set('X-Request-Id', requestId);
   if (token) headers.set('Authorization', `Bearer ${token}`);
+  else headers.delete('Authorization');
 
   logger.debug('api.request', { method, path, requestId });
 
@@ -81,22 +194,33 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   const durationMs = Date.now() - startedAt;
 
   if (!response.ok) {
-    const error = body?.error;
+    if (response.status === 401 && !path.startsWith('/api/v1/auth/')) {
+      if (allowRefresh) {
+        const currentToken = await getAccessToken();
+        if (currentToken && currentToken !== token) {
+          return requestInternal<T>(path, options, false);
+        }
+
+        const refreshToken = await getRefreshToken();
+        if (refreshToken) {
+          await refreshAccessToken();
+          return requestInternal<T>(path, options, false);
+        }
+      }
+
+      await expireLocalSession();
+    }
+
     logger.warn('api.response_error', {
       method,
       path,
       requestId: responseRequestId,
       status: response.status,
       durationMs,
-      code: error?.code || 'REQUEST_FAILED'
+      code: body?.error?.code || 'REQUEST_FAILED'
     });
 
-    throw new ApiError(
-      error?.message || 'Request failed. Try again.',
-      error?.code || 'REQUEST_FAILED',
-      response.status,
-      { ...(error?.details || {}), requestId: responseRequestId }
-    );
+    throw errorFromResponse(body, response, responseRequestId);
   }
 
   logger.debug('api.response', {
@@ -108,6 +232,10 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   });
 
   return body?.data as T;
+}
+
+export function request<T>(path: string, options: RequestInit = {}) {
+  return requestInternal<T>(path, options, true);
 }
 
 export function jsonRequest<T>(path: string, method: 'POST' | 'PUT' | 'PATCH', body: unknown) {

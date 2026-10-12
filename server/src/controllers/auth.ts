@@ -1,30 +1,34 @@
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import type { Request, RequestHandler } from 'express';
+import type { Request, RequestHandler, Response } from 'express';
 import type { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db } from '../config/db.ts';
 import { emailOtps, profiles, users } from '../config/schema.ts';
 import { findUserByEmail, getSelectedTasks } from '../config/queries.ts';
-import type { DataResponse, LoginData, RegisterData, ResendData, VerificationData } from '../types/api.ts';
+import type { DataResponse, LoginData, LogoutData, RegisterData, RefreshData, ResendData, VerificationData } from '../types/api.ts';
 import env from '../config/env.ts';
 import AppError from '../utils/app-error.ts';
 import { generateOtp, hashOtp, otpMatches, otpExpired, resendAvailable } from '../utils/otp.ts';
 import { sendOtp } from '../utils/mailer.ts';
-import { loginSchema, registerSchema, verifySchema } from '../validation/auth.ts';
+import { loginSchema, registerSchema, refreshTokenSchema, verifySchema } from '../validation/auth.ts';
+import { issueTokenPair, revokeRefreshToken, rotateRefreshToken } from '../services/session-tokens.ts';
 
 type RegisterInput = z.infer<typeof registerSchema>;
 type VerifyInput = z.infer<typeof verifySchema>;
 type LoginInput = z.infer<typeof loginSchema>;
+type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
 
 type RouteParams = Record<string, string>;
 type RegisterHandler = RequestHandler<RouteParams, DataResponse<RegisterData>, RegisterInput>;
 type VerificationHandler = RequestHandler<RouteParams, DataResponse<VerificationData>, VerifyInput>;
 type ResendHandler = RequestHandler<RouteParams, DataResponse<ResendData | VerificationData>, Pick<VerifyInput, 'email'>>;
 type LoginHandler = RequestHandler<RouteParams, DataResponse<LoginData>, LoginInput>;
+type RefreshHandler = RequestHandler<RouteParams, DataResponse<RefreshData>, RefreshTokenInput>;
+type LogoutHandler = RequestHandler<RouteParams, DataResponse<LogoutData>, RefreshTokenInput>;
 
-function createToken(userId: number) {
-  return jwt.sign({ sub: userId }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN });
+function disableResponseCaching(res: Response) {
+  res.set('Cache-Control', 'no-store');
+  res.set('Pragma', 'no-cache');
 }
 
 function otpWindow() {
@@ -178,9 +182,12 @@ const login: LoginHandler = async (req, res) => {
   ]);
   const profile = profileResult[0];
 
+  const tokens = await issueTokenPair(user.id);
+
+  disableResponseCaching(res);
   res.json({
     data: {
-      token: createToken(user.id),
+      ...tokens,
       user: { id: user.id, email: user.email, emailVerifiedAt: user.emailVerifiedAt },
       profile: profile || null,
       selectedTasks,
@@ -189,4 +196,24 @@ const login: LoginHandler = async (req, res) => {
   });
 };
 
-export { register, verifyEmail, resendVerification, login };
+const refreshSession: RefreshHandler = async (req, res) => {
+  const result = await rotateRefreshToken(req.body.refreshToken);
+
+  if (result.status !== 'rotated') {
+    if (result.status === 'reused') {
+      req.log.warn({ event: 'auth.refresh_token_reuse_detected', userId: result.userId }, 'revoked refresh token was reused; session family revoked');
+    }
+    throw new AppError(401, 'INVALID_REFRESH_TOKEN', 'Refresh token is invalid or expired. Sign in again.');
+  }
+
+  req.log.info({ event: 'auth.token_refreshed', userId: result.userId }, 'access token refreshed');
+  disableResponseCaching(res);
+  res.json({ data: result.tokens });
+};
+
+const logout: LogoutHandler = async (req, res) => {
+  await revokeRefreshToken(req.body.refreshToken);
+  res.json({ data: { loggedOut: true } });
+};
+
+export { register, verifyEmail, resendVerification, login, refreshSession, logout };

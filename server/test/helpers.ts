@@ -55,7 +55,7 @@ async function selectTasks(userId: number, ids: number[]) {
 }
 
 function authToken(userId: number) {
-  return jwt.sign({ sub: userId }, env.JWT_SECRET, { expiresIn: '15m' });
+  return jwt.sign({ sub: userId, tokenUse: 'access' }, env.JWT_SECRET, { expiresIn: '15m' });
 }
 
 function authHeader(userId: number) {

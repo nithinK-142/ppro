@@ -135,17 +135,17 @@ The app source uses `.ts` and `.tsx`.
 app/        Expo Router screens and route groups
 src/api/    API requests and shared request handling
 src/state/  Auth/session state
-src/storage/ SecureStore token persistence
+src/storage/ SecureStore access/refresh token persistence
 src/components/ Shared UI components
 src/theme/  Shared theme values
 src/utils/  Shared utilities and logging
 ```
 
-Authentication and session restoration are handled through `AuthProvider`.
+Authentication and session restoration are handled through `AuthProvider`. Access and refresh tokens are kept in Expo SecureStore. The API client rotates tokens automatically after an access-token 401; logout revokes the refresh-token session when the API is reachable.
 
 API access goes through the shared request client in `src/api/client.ts`.
 
-JWTs are stored with Expo SecureStore.
+The access JWT and opaque refresh token are stored with Expo SecureStore.
 
 ## Flow
 
@@ -153,7 +153,7 @@ JWTs are stored with Expo SecureStore.
 register → verify email → login → profile → choose tasks → home
 ```
 
-The JWT is restored when the app starts.
+The saved access token is restored when the app starts. If it expires, the shared API client rotates the refresh token and retries the failed request once.
 
 ## States
 

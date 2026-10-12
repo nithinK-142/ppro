@@ -76,6 +76,26 @@ describe('middleware and error handling', () => {
     expect(response.body.error.code).toBe('INVALID_TOKEN');
   });
 
+  it('rejects JWTs without an access-token use marker', async () => {
+    const token = jwt.sign({ sub: 1 }, env.JWT_SECRET, { expiresIn: '15m' });
+    const response = await request(app)
+      .get('/api/v1/tasks/selected')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
+
+    expect(response.body.error.code).toBe('INVALID_TOKEN');
+  });
+
+  it('rejects JWTs explicitly marked for a non-access use', async () => {
+    const token = jwt.sign({ sub: 1, tokenUse: 'refresh' }, env.JWT_SECRET, { expiresIn: '15m' });
+    const response = await request(app)
+      .get('/api/v1/tasks/selected')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
+
+    expect(response.body.error.code).toBe('INVALID_TOKEN');
+  });
+
   it('accepts a valid bearer token', async () => {
     const user = await createUser({ email: 'auth-middleware@example.com' });
     const response = await request(app)

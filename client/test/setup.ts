@@ -11,9 +11,9 @@ const mocks = vi.hoisted(() => ({
   },
   params: {} as Record<string, string>,
   secureStore: {
-    getItemAsync: vi.fn(async () => null as string | null),
-    setItemAsync: vi.fn(async () => undefined),
-    deleteItemAsync: vi.fn(async () => undefined)
+    getItemAsync: vi.fn(async (_key?: string) => null as string | null),
+    setItemAsync: vi.fn(async (_key?: string, _value?: string) => undefined),
+    deleteItemAsync: vi.fn(async (_key?: string) => undefined)
   }
 }));
 

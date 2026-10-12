@@ -76,9 +76,39 @@ paths:
                 password: { type: string, minLength: 8, maxLength: 72 }
       responses:
         '200':
-          description: JWT and current session state returned.
+          description: Short-lived access token, rotating refresh token, and current session state returned.
         '401': { description: Invalid credentials. }
         '403': { description: Email not verified. }
+  /api/v1/auth/refresh:
+    post:
+      summary: Rotate refresh token and issue a new access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string, minLength: 32, maxLength: 200 }
+      responses:
+        '200': { description: New access and refresh tokens returned; the supplied refresh token is invalidated. }
+        '401': { description: Refresh token is invalid, expired, revoked, or reused. }
+  /api/v1/auth/logout:
+    post:
+      summary: Revoke the refresh-token session family
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string, minLength: 32, maxLength: 200 }
+      responses:
+        '200': { description: Refresh-token session revoked. }
+        '400': { $ref: '#/components/responses/BadRequest' }
   /api/v1/profile:
     get:
       summary: Get current user profile and selected tasks

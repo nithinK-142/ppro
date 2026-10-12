@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { getMe } from '../api/profile';
-import { ApiError } from '../api/client';
-import { login as loginRequest } from '../api/auth';
-import { clearToken, getToken, setToken } from '../storage/token';
+import { ApiError, subscribeToAuthExpiry } from '../api/client';
+import { login as loginRequest, logout as logoutRequest } from '../api/auth';
+import { clearTokens, getAccessToken, getRefreshToken, setTokens } from '../storage/token';
 import type { AuthStatus, Profile, SessionData, Task, User } from '../types';
 
 type AuthContextValue = {
@@ -41,18 +41,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function refresh() {
-    const token = await getToken();
-    if (!token) {
-      setStatus('signed_out');
-      return;
-    }
-
     try {
+      const token = await getAccessToken();
+      const refreshToken = token ? null : await getRefreshToken();
+      if (!token && !refreshToken) {
+        setStatus('signed_out');
+        return;
+      }
+
       applySession(await getMe());
     } catch (error: unknown) {
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
-        await clearToken();
-        clearSession();
+        try {
+          await clearTokens();
+        } finally {
+          clearSession();
+        }
         return;
       }
 
@@ -61,18 +65,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    const unsubscribe = subscribeToAuthExpiry(() => clearSession());
     void refresh();
+    return unsubscribe;
   }, []);
 
   async function signIn(email: string, password: string) {
     const data = await loginRequest({ email, password });
-    await setToken(data.token);
+    await setTokens(data.accessToken, data.refreshToken);
     applySession(data);
   }
 
   async function signOut() {
-    await clearToken();
-    clearSession();
+    try {
+      const refreshToken = await getRefreshToken();
+      if (refreshToken) await logoutRequest(refreshToken);
+    } catch {
+      // Local sign-out must still complete when the API is unreachable.
+    } finally {
+      try {
+        await clearTokens();
+      } finally {
+        clearSession();
+      }
+    }
   }
 
   function updateProfile(nextProfile: Profile) {

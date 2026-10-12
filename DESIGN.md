@@ -30,11 +30,11 @@ OTP:
 - Single-use.
 - 30-second resend cooldown.
 
-JWTs are used for login sessions and expire after 7 days by default.
+Access JWTs expire after 15 minutes by default. Opaque refresh tokens have a 30-day absolute lifetime, are stored as hashes, rotate on use, and can be revoked on logout.
 
 Unverified users cannot log in. Session restore handles expired or invalid authentication separately from temporary network or server errors.
 
-SecureStore persists the authentication token on the device.
+Expo SecureStore persists access and refresh tokens on the device.
 
 ## Client UX
 
@@ -92,7 +92,7 @@ The implemented flow covers:
 
 - **Database access:** Typed PostgreSQL queries keep data access readable as the codebase grows. Handwritten SQL is simple for a small project, but a large number of raw queries and parameter lists can become harder to read and maintain. The existing `schema.sql` remains as the startup bootstrap instead of adding a migration runtime for this small assignment.
 
-- **JWT sessions:** Stateless and simple. Tokens cannot be revoked before expiry.
+- **Access/refresh sessions:** Access JWTs remain stateless and are short-lived. Refresh tokens are stored as hashes, rotated on use, and revoked by session family on logout or detected reuse. Already-issued access JWTs remain valid until their short expiry after logout; immediate revocation would require a denylist or server-side session lookup.
 - **OTP stored as a hash:** Safer if the database is exposed. The original OTP cannot be retrieved later.
 - **Replace-all task selection:** Saving selections replaces the user's previous selection in one transaction. This keeps the state simple. The trade-off is that selection history is not kept.
 
@@ -101,7 +101,6 @@ The implemented flow covers:
 With another week, I would focus on:
 
 - Password reset and account recovery.
-- Better session management and token revocation.
 - OpenAPI contract tests and more end-to-end tests.
 - Task status and completion after task selection.
 
