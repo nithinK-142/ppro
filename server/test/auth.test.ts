@@ -1,9 +1,11 @@
 import request from 'supertest';
+import { createHash } from 'node:crypto';
 import { beforeEach, vi } from 'vitest';
 import app from '../src/app.ts';
 import { eq } from 'drizzle-orm';
+import jwt from 'jsonwebtoken';
 import { db } from '../src/config/db.ts';
-import { emailOtps, users } from '../src/config/schema.ts';
+import { emailOtps, refreshTokens, users } from '../src/config/schema.ts';
 import { generateOtp, hashOtp } from '../src/utils/otp.ts';
 import { authHeader, createProfile, createUser, otpRecord, selectTasks, taskId } from './helpers.ts';
 
@@ -244,11 +246,119 @@ describe('authentication', () => {
       .send({ email: user.email, password: validPassword })
       .expect(200);
 
-    expect(response.body.data.token).toEqual(expect.any(String));
+    expect(response.body.data.accessToken).toEqual(expect.any(String));
+    expect(response.body.data.refreshToken).toEqual(expect.any(String));
+    expect(jwt.decode(response.body.data.accessToken)).toMatchObject({ sub: String(user.id), tokenUse: 'access' });
+    expect(response.body.data).not.toHaveProperty('token');
     expect(response.body.data.user.email).toBe(user.email);
+    await request(app)
+      .get('/api/v1/profile')
+      .set('Authorization', `Bearer ${response.body.data.accessToken}`)
+      .expect(200);
     expect(response.body.data.profile.businessName).toBe('Padosi Homes');
     expect(response.body.data.selectedTasks).toHaveLength(2);
     expect(response.body.data.setupComplete).toBe(true);
+  });
+
+  it('stores only a hash of the refresh token', async () => {
+    const user = await createUser({ email: 'token-hash@example.com', verified: true });
+    const response = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: user.email, password: validPassword })
+      .expect(200);
+
+    const tokenHash = createHash('sha256').update(response.body.data.refreshToken).digest('hex');
+    const [record] = await db.select().from(refreshTokens).where(eq(refreshTokens.userId, user.id)).limit(1);
+
+    expect(record?.tokenHash).toBe(tokenHash);
+    expect(record?.tokenHash).not.toBe(response.body.data.refreshToken);
+    expect(record?.revokedAt).toBeNull();
+    expect(record?.expiresAt.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('rotates refresh tokens and revokes the family when an old token is reused', async () => {
+    const user = await createUser({ email: 'token-rotation@example.com', verified: true });
+    const loginResponse = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: user.email, password: validPassword })
+      .expect(200);
+    const firstRefreshToken = loginResponse.body.data.refreshToken as string;
+
+    const refreshResponse = await request(app)
+      .post('/api/v1/auth/refresh')
+      .send({ refreshToken: firstRefreshToken })
+      .expect(200);
+
+    expect(refreshResponse.body.data.accessToken).toEqual(expect.any(String));
+    expect(refreshResponse.body.data.refreshToken).toEqual(expect.any(String));
+    expect(refreshResponse.body.data.refreshToken).not.toBe(firstRefreshToken);
+
+    const firstHash = createHash('sha256').update(firstRefreshToken).digest('hex');
+    const [firstRecord] = await db.select().from(refreshTokens).where(eq(refreshTokens.tokenHash, firstHash)).limit(1);
+    expect(firstRecord?.revokedAt).toBeTruthy();
+    expect(firstRecord?.replacedByHash).toBe(createHash('sha256').update(refreshResponse.body.data.refreshToken).digest('hex'));
+
+    await request(app)
+      .post('/api/v1/auth/refresh')
+      .send({ refreshToken: firstRefreshToken })
+      .expect(401);
+
+    const activeHash = createHash('sha256').update(refreshResponse.body.data.refreshToken).digest('hex');
+    const [activeRecord] = await db.select().from(refreshTokens).where(eq(refreshTokens.tokenHash, activeHash)).limit(1);
+    expect(activeRecord?.revokedAt).toBeTruthy();
+
+    await request(app)
+      .post('/api/v1/auth/refresh')
+      .send({ refreshToken: refreshResponse.body.data.refreshToken })
+      .expect(401);
+  });
+
+  it('revokes the refresh-token family on logout', async () => {
+    const user = await createUser({ email: 'token-logout@example.com', verified: true });
+    const loginResponse = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: user.email, password: validPassword })
+      .expect(200);
+    const refreshToken = loginResponse.body.data.refreshToken as string;
+
+    await request(app)
+      .post('/api/v1/auth/logout')
+      .send({ refreshToken })
+      .expect(200, { data: { loggedOut: true } });
+
+    await request(app)
+      .post('/api/v1/auth/refresh')
+      .send({ refreshToken })
+      .expect(401);
+  });
+
+  it('rejects expired refresh tokens and revokes their session family', async () => {
+    const user = await createUser({ email: 'token-expired@example.com', verified: true });
+    const loginResponse = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: user.email, password: validPassword })
+      .expect(200);
+    const refreshToken = loginResponse.body.data.refreshToken as string;
+    const tokenHash = createHash('sha256').update(refreshToken).digest('hex');
+
+    await db.update(refreshTokens)
+      .set({ expiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(refreshTokens.tokenHash, tokenHash));
+
+    await request(app)
+      .post('/api/v1/auth/refresh')
+      .send({ refreshToken })
+      .expect(401);
+
+    const [record] = await db.select().from(refreshTokens).where(eq(refreshTokens.tokenHash, tokenHash)).limit(1);
+    expect(record?.revokedAt).toBeTruthy();
+  });
+
+  it('rejects unknown refresh tokens', async () => {
+    await request(app)
+      .post('/api/v1/auth/refresh')
+      .send({ refreshToken: 'x'.repeat(43) })
+      .expect(401);
   });
 
   it('logs in without profile or tasks and reports incomplete setup', async () => {
