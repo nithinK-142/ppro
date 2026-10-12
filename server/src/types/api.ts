@@ -22,7 +22,17 @@ export interface SessionData {
 }
 
 export interface LoginData extends SessionData {
-  token: string;
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface RefreshData {
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface LogoutData {
+  loggedOut: true;
 }
 
 

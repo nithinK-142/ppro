@@ -18,5 +18,6 @@ const verifySchema = z.object({
 });
 
 const loginSchema = z.object({ email, password });
+const refreshTokenSchema = z.object({ refreshToken: z.string().min(32).max(200) });
 
-export { registerSchema, verifySchema, loginSchema };
+export { registerSchema, verifySchema, loginSchema, refreshTokenSchema };
