@@ -1,35 +1,69 @@
 import * as SecureStore from 'expo-secure-store';
 
-const TOKEN_KEY = 'padosipro.auth.token';
+const ACCESS_TOKEN_KEY = 'padosipro.auth.access-token';
+const REFRESH_TOKEN_KEY = 'padosipro.auth.refresh-token';
 
-let cachedToken: string | null | undefined;
-let hydrationPromise: Promise<string | null> | null = null;
+let cachedAccessToken: string | null | undefined;
+let cachedRefreshToken: string | null | undefined;
+let accessHydration: Promise<string | null> | null = null;
+let refreshHydration: Promise<string | null> | null = null;
 
-async function getToken() {
-  if (cachedToken !== undefined) return cachedToken;
+async function getAccessToken() {
+  if (cachedAccessToken !== undefined) return cachedAccessToken;
 
-  hydrationPromise ??= SecureStore.getItemAsync(TOKEN_KEY)
+  accessHydration ??= SecureStore.getItemAsync(ACCESS_TOKEN_KEY)
     .then((token) => {
-      cachedToken = token;
+      cachedAccessToken = token;
       return token;
     })
-    .catch((error) => {
-      hydrationPromise = null;
+    .catch((error: unknown) => {
+      accessHydration = null;
       throw error;
     });
 
-  return hydrationPromise;
+  return accessHydration;
 }
 
-async function setToken(token: string) {
-  await SecureStore.setItemAsync(TOKEN_KEY, token);
-  cachedToken = token;
+async function getRefreshToken() {
+  if (cachedRefreshToken !== undefined) return cachedRefreshToken;
+
+  refreshHydration ??= SecureStore.getItemAsync(REFRESH_TOKEN_KEY)
+    .then((token) => {
+      cachedRefreshToken = token;
+      return token;
+    })
+    .catch((error: unknown) => {
+      refreshHydration = null;
+      throw error;
+    });
+
+  return refreshHydration;
 }
 
-async function clearToken() {
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
-  cachedToken = null;
-  hydrationPromise = null;
+async function setTokens(accessToken: string, refreshToken: string) {
+  // Persist the replacement refresh token first. If the app stops mid-write,
+  // the still-valid previous access token can continue using the new refresh token.
+  await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
+  cachedRefreshToken = refreshToken;
+  refreshHydration = Promise.resolve(refreshToken);
+
+  await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken);
+  cachedAccessToken = accessToken;
+  accessHydration = Promise.resolve(accessToken);
 }
 
-export { getToken, setToken, clearToken };
+async function clearTokens() {
+  try {
+    await Promise.all([
+      SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
+      SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY)
+    ]);
+  } finally {
+    cachedAccessToken = null;
+    cachedRefreshToken = null;
+    accessHydration = Promise.resolve(null);
+    refreshHydration = Promise.resolve(null);
+  }
+}
+
+export { getAccessToken, getRefreshToken, setTokens, clearTokens };

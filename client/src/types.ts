@@ -20,11 +20,20 @@ export type Profile = {
 };
 
 export type SessionData = {
-  token: string;
   user: User;
   profile: Profile | null;
   selectedTasks: Task[];
   setupComplete: boolean;
+};
+
+export type LoginResponse = SessionData & {
+  accessToken: string;
+  refreshToken: string;
+};
+
+export type TokenPair = {
+  accessToken: string;
+  refreshToken: string;
 };
 
 export type AuthStatus = 'loading' | 'signed_out' | 'signed_in' | 'session_error';
