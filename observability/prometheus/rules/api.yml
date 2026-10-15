@@ -1,0 +1,29 @@
+groups:
+  - name: padosipro-api
+    rules:
+      - alert: PadosiProApiUnavailable
+        expr: up{job="padosipro-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: PadosiPro API scrape is failing
+          description: Prometheus cannot scrape the API metrics endpoint for at least one minute.
+
+      - alert: PadosiProHighServerErrorRate
+        expr: (sum(rate(padosipro_http_server_errors_total[5m])) / clamp_min(sum(rate(padosipro_http_requests_total[5m])), 0.001) > 0.05) and sum(rate(padosipro_http_requests_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: PadosiPro HTTP 5xx rate is above 5%
+          description: More than 5% of completed requests returned a server error over the recent window.
+
+      - alert: PadosiProHighRequestLatency
+        expr: histogram_quantile(0.95, sum by (le) (rate(padosipro_http_request_duration_seconds_bucket[5m]))) > 0.75
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: PadosiPro p95 request latency is above 750 ms
+          description: The 95th percentile HTTP request duration has stayed above 750 ms for five minutes.
