@@ -23,6 +23,10 @@ pnpm test
 
 The test setup deletes and reseeds application tables. It refuses to run if the test database matches the database in `.env`. Never use production data for tests. Test mail settings are placeholders because email calls are mocked.
 
+## Observability
+
+See [`../observability/README.md`](../observability/README.md) for metrics and tracing setup.
+
 ## Database configuration
 
 The application uses the standard `pg` driver and Drizzle's `node-postgres` adapter. It supports compatible PostgreSQL providers through `DATABASE_URL`; use any TLS or connection parameters required by your provider.
@@ -57,26 +61,30 @@ Run the API on a Node.js host that supports the required Node.js version and can
 
 Set the following variables in the deployment environment:
 
-- `DATABASE_URL`
-- `DATABASE_POOL_MAX`
-- `DATABASE_IDLE_TIMEOUT_MS`
-- `DATABASE_CONNECTION_TIMEOUT_MS`
-- `JWT_SECRET`
-- `ACCESS_TOKEN_EXPIRES_IN`
-- `REFRESH_TOKEN_TTL_DAYS`
-- `OTP_SECRET`
-- `OTP_EXPIRES_MINUTES`
-- `OTP_RESEND_SECONDS`
-- `OTP_MAX_ATTEMPTS`
-- `MAILJET_API_KEY`
-- `MAILJET_SECRET_KEY`
-- `MAILJET_SEND_URL`
-- `MAILJET_TIMEOUT_MS`
-- `MAIL_FROM_EMAIL`
-- `MAIL_FROM_NAME`
-- `CLIENT_ORIGIN`
-- `TRUST_PROXY`
-- `LOG_LEVEL`
+- `DATABASE_URL` — PostgreSQL connection URL.
+- `DATABASE_POOL_MAX` — Maximum number of database connections in the pool.
+- `DATABASE_IDLE_TIMEOUT_MS` — Time in milliseconds before an idle database connection is closed.
+- `DATABASE_CONNECTION_TIMEOUT_MS` — Maximum time in milliseconds to wait for a database connection.
+- `JWT_SECRET` — Secret used to sign and verify JWTs.
+- `ACCESS_TOKEN_EXPIRES_IN` — Access token lifetime, for example `15m`.
+- `REFRESH_TOKEN_TTL_DAYS` — Number of days a refresh token remains valid.
+- `OTP_SECRET` — Secret used to protect OTP-related operations.
+- `OTP_EXPIRES_MINUTES` — OTP validity period in minutes.
+- `OTP_RESEND_SECONDS` — Minimum wait time in seconds before another OTP can be requested.
+- `OTP_MAX_ATTEMPTS` — Maximum number of OTP verification attempts allowed.
+- `MAILJET_API_KEY` — Mailjet API key used to send emails.
+- `MAILJET_SECRET_KEY` — Mailjet secret key used to authenticate API requests.
+- `MAILJET_SEND_URL` — Mailjet email sending API endpoint.
+- `MAILJET_TIMEOUT_MS` — Maximum time in milliseconds to wait for a Mailjet API response.
+- `MAIL_FROM_EMAIL` — Email address shown as the sender.
+- `MAIL_FROM_NAME` — Display name shown as the sender.
+- `CLIENT_ORIGIN` — Allowed frontend origin(s) for cross-origin requests.
+- `TRUST_PROXY` — Whether the API trusts forwarded request information from a reverse proxy.
+- `LOG_LEVEL` — Minimum severity level for logs, such as `info`, `warn`, or `error`.
+- `METRICS_TOKEN` — bearer token for the protected `/metrics` endpoint
+- `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` — optional OTLP/HTTP trace receiver URL
+- `OTEL_EXPORTER_OTLP_HEADERS` — optional URL-encoded OTLP headers
+- `OTEL_SERVICE_NAME` — service name shown in traces
 
 Set `NODE_ENV=production`. Configure the client to use the deployed API's base URL. Restart or redeploy after changing environment variables.
 
