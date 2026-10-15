@@ -11,6 +11,18 @@ cp .env.example .env
 
 Set `DATABASE_URL` and the other required environment variables in `.env`.
 
+## Tests
+
+Tests load `server/.env.test` only; they do not use `server/.env`. Create it from the test template and set `DATABASE_URL` to a disposable PostgreSQL database:
+
+```sh
+cp .env.test.example .env.test
+# Edit .env.test and set DATABASE_URL
+pnpm test
+```
+
+The test setup deletes and reseeds application tables. It refuses to run if the test database matches the database in `.env`. Never use production data for tests. Test mail settings are placeholders because email calls are mocked.
+
 ## Database configuration
 
 The application uses the standard `pg` driver and Drizzle's `node-postgres` adapter. It supports compatible PostgreSQL providers through `DATABASE_URL`; use any TLS or connection parameters required by your provider.

@@ -1,6 +1,13 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import type { SignOptions } from 'jsonwebtoken';
+
+const isTest = process.env.NODE_ENV === 'test';
+dotenv.config({
+  path: fileURLToPath(new URL(isTest ? '../../.env.test' : '../../.env', import.meta.url)),
+  override: isTest
+});
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
