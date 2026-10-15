@@ -3,6 +3,7 @@ import env from './config/env.ts';
 import { closeDatabase } from './config/db.ts';
 import { seedTasks } from './config/seed.ts';
 import logger from './utils/logger.ts';
+import { flushTraces } from './observability/tracing.ts';
 
 async function start() {
   await seedTasks();
@@ -23,6 +24,7 @@ async function start() {
 
     server.close(async () => {
       clearTimeout(forceExit);
+      await flushTraces();
       await closeDatabase();
       process.exit(0);
     });

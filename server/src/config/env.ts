@@ -35,7 +35,16 @@ const envSchema = z.object({
   METRICS_TOKEN: z.preprocess(
     (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
     z.string().min(32).optional()
-  )
+  ),
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+    z.string().url().optional()
+  ),
+  OTEL_EXPORTER_OTLP_HEADERS: z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+    z.string().optional()
+  ),
+  OTEL_SERVICE_NAME: z.string().min(1).default('padosipro-api')
 })
   .refine(
     ({ NODE_ENV, JWT_SECRET }) => NODE_ENV !== 'production' || JWT_SECRET !== 'replace-with-a-long-random-secret',

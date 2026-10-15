@@ -5,6 +5,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { sql } from 'drizzle-orm';
 import type { PoolClient } from 'pg';
 import { normalizeDatabaseCommand, observeDatabaseQuery } from '../observability/metrics.ts';
+import { finishSpan, runInParentSpanContext, runInSpanContext, startDatabaseSpan } from '../observability/tracing.ts';
 import { performance } from 'node:perf_hooks';
 import env from './env.ts';
 import logger from '../utils/logger.ts';
@@ -27,11 +28,13 @@ function instrumentQueries(client: PoolClient): void {
   instrumentedClient.query = (...args: unknown[]) => {
     const command = normalizeDatabaseCommand(args[0]);
     const started = performance.now();
+    const span = startDatabaseSpan(command);
     let recorded = false;
     const record = (error?: unknown) => {
       if (recorded) return;
       recorded = true;
       observeDatabaseQuery(command, (performance.now() - started) / 1000, Boolean(error));
+      finishSpan(span, error ? { 'error.type': error instanceof Error ? error.name : 'Error' } : {}, Boolean(error));
     };
 
     const callbackIndex = args.map((value) => typeof value === 'function').lastIndexOf(true);
@@ -39,12 +42,12 @@ function instrumentQueries(client: PoolClient): void {
       const callback = args[callbackIndex] as (...callbackArgs: unknown[]) => unknown;
       args[callbackIndex] = (...callbackArgs: unknown[]) => {
         record(callbackArgs[0]);
-        return callback(...callbackArgs);
+        return runInParentSpanContext(span, () => callback(...callbackArgs));
       };
-      return originalQuery(...args);
+      return runInSpanContext(span, () => originalQuery(...args));
     }
 
-    const result = originalQuery(...args);
+    const result = runInSpanContext(span, () => originalQuery(...args));
     if (result && typeof result === 'object' && 'then' in result && typeof result.then === 'function') {
       return Promise.resolve(result).then(
         (value) => { record(); return value; },
