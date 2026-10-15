@@ -31,7 +31,20 @@ const envSchema = z.object({
   MAIL_FROM_NAME: z.string().min(1).default('PadosiPro'),
   CLIENT_ORIGIN: z.string().min(1).default('http://localhost:8081'),
   TRUST_PROXY: z.string().optional().default('false'),
-  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info')
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  METRICS_TOKEN: z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+    z.string().min(32).optional()
+  ),
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+    z.string().url().optional()
+  ),
+  OTEL_EXPORTER_OTLP_HEADERS: z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+    z.string().optional()
+  ),
+  OTEL_SERVICE_NAME: z.string().min(1).default('padosipro-api')
 })
   .refine(
     ({ NODE_ENV, JWT_SECRET }) => NODE_ENV !== 'production' || JWT_SECRET !== 'replace-with-a-long-random-secret',

@@ -18,7 +18,8 @@ const requiredTestKeys = [
   'OTP_SECRET',
   'MAILJET_API_KEY',
   'MAILJET_SECRET_KEY',
-  'MAIL_FROM_EMAIL'
+  'MAIL_FROM_EMAIL',
+  'METRICS_TOKEN'
 ];
 const missingTestKeys = requiredTestKeys.filter((key) => !testEnv[key]?.trim());
 

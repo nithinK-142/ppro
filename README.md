@@ -62,6 +62,10 @@ These email credentials are provided only for testing and are intended to be dis
 register → verify email → login → profile → choose tasks → home
 ```
 
+## Observability
+
+Prometheus, Grafana, and Tempo run independently of the API and client. Setup, request metrics, and individual request traces are documented in [`observability/README.md`](observability/README.md).
+
 ## Note
 
 - APK build instructions are documented in `client/README.md`.
