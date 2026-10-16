@@ -11,8 +11,11 @@ import { getErrorMessage } from '../../src/utils/errors';
 export default function Verify() {
   const params = useLocalSearchParams();
   const email = String(params.email ?? '');
+  const [verificationEmailSent, setVerificationEmailSent] = useState(
+    () => String(params.verificationEmailSent ?? 'true') !== 'false'
+  );
   const [otp, setOtp] = useState('');
-  const [seconds, setSeconds] = useState(30);
+  const [seconds, setSeconds] = useState(verificationEmailSent ? 30 : 0);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [message, setMessage] = useState('');
@@ -43,9 +46,14 @@ export default function Verify() {
     setResending(true);
     setMessage('');
     try {
-      await resendVerification(email);
-      setSeconds(30);
-      setOtp('');
+      const result = await resendVerification(email);
+      if (result.verified) {
+        router.replace({ pathname: '/(auth)/login', params: { verified: '1' } });
+        return;
+      }
+      setVerificationEmailSent(result.sent);
+      setSeconds(result.sent ? 30 : 0);
+      if (result.sent) setOtp('');
     } catch (error: unknown) {
       const retryAfterSeconds = error instanceof ApiError ? error.details.retryAfterSeconds : undefined;
       if (error instanceof ApiError && error.code === 'OTP_COOLDOWN' && typeof retryAfterSeconds === 'number') {
@@ -59,9 +67,13 @@ export default function Verify() {
 
   return (
     <AuthScreen contentStyle={styles.content}>
-        <Text style={styles.eyebrow}>CHECK YOUR EMAIL</Text>
+        <Text style={styles.eyebrow}>{verificationEmailSent ? 'CHECK YOUR EMAIL' : 'EMAIL NOT SENT'}</Text>
         <Text style={styles.title}>Six digits. Then you're in.</Text>
-        <Text style={styles.copy}>We sent a verification code to <Text style={styles.email}>{email}</Text>. It is valid for 10 minutes.</Text>
+        {verificationEmailSent ? (
+          <Text style={styles.copy}>We sent a verification code to <Text style={styles.email}>{email}</Text>. It is valid for 10 minutes.</Text>
+        ) : (
+          <Text style={styles.message} accessibilityRole="alert">We couldn't send a verification code to <Text style={styles.email}>{email}</Text>. Try sending it again below.</Text>
+        )}
         <TextInput
           value={otp}
           onChangeText={(value) => setOtp(value.replace(/\D/g, '').slice(0, 6))}

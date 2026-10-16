@@ -1,7 +1,7 @@
 import { jsonRequest } from './client';
 import type { LoginPayload, LoginResponse, RegisterPayload, VerifyEmailPayload } from '../types';
 
-export const register = (payload: RegisterPayload) => jsonRequest<{ userId: number; email: string; verificationRequired: boolean }>('/api/v1/auth/register', 'POST', payload);
+export const register = (payload: RegisterPayload) => jsonRequest<{ userId: number; email: string; verificationRequired: boolean; verificationEmailSent: boolean }>('/api/v1/auth/register', 'POST', payload);
 
 export const verifyEmail = (payload: VerifyEmailPayload) => jsonRequest<{ verified: boolean }>('/api/v1/auth/verify-email', 'POST', payload);
 

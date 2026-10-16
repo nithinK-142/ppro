@@ -127,7 +127,7 @@ register → verify email → login → profile → choose tasks → home
 
 OTP verification is required before login.
 
-Registration and OTP resend persist the OTP, then await the Mailjet send attempt before responding. The attempt is bounded by `MAILJET_TIMEOUT_MS`. Delivery failure is logged; users can request another code. Email delivery is awaited rather than delegated to a host-specific background-work API.
+Registration reports whether Mailjet accepted the verification email with `verificationEmailSent`. Resend returns `EMAIL_DELIVERY_FAILED` if sending fails. Provider acceptance does not guarantee inbox delivery. Email sending is bounded by `MAILJET_TIMEOUT_MS`.
 
 ## API
 

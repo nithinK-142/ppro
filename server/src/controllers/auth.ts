@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import type { Request, RequestHandler, Response } from 'express';
 import type { z } from 'zod';
-import { eq } from 'drizzle-orm';
+import { and, eq, gt, lt, sql } from 'drizzle-orm';
 import { db } from '../config/db.ts';
 import { emailOtps, profiles, users } from '../config/schema.ts';
 import { findUserByEmail, getSelectedTasks } from '../config/queries.ts';
@@ -37,12 +37,14 @@ function otpWindow() {
   return { sentAt, expiresAt };
 }
 
-async function sendVerificationCode(req: Request, email: string, code: string, userId: number, event: 'auth.otp_sent' | 'auth.otp_resent') {
+async function sendVerificationCode(req: Request, email: string, code: string, userId: number, event: 'auth.otp_sent' | 'auth.otp_resent'): Promise<boolean> {
   try {
     await sendOtp(email, code);
     req.log.info({ event, userId }, 'verification code sent');
-  } catch (err) {
-    req.log.error({ err, event: 'auth.otp_send_failed', userId }, 'failed to send verification code');
+    return true;
+  } catch {
+    req.log.error({ event: 'auth.otp_send_failed', userId }, 'failed to send verification code');
+    return false;
   }
 }
 
@@ -77,10 +79,10 @@ const register: RegisterHandler = async (req, res) => {
 
   req.log.info({ event: 'auth.registered', userId }, 'user registered');
 
-  await sendVerificationCode(req, email, code, userId, 'auth.otp_sent');
+  const verificationEmailSent = await sendVerificationCode(req, email, code, userId, 'auth.otp_sent');
 
   res.status(201).json({
-    data: { userId, email, verificationRequired: true }
+    data: { userId, email, verificationRequired: true, verificationEmailSent }
   });
 };
 
@@ -105,9 +107,20 @@ const verifyEmail: VerificationHandler = async (req, res) => {
   }
 
   if (!otpMatches(otp, record.codeHash)) {
-    const attempts = record.attempts + 1;
-    await db.update(emailOtps).set({ attempts }).where(eq(emailOtps.userId, user.id));
-    throw new AppError(400, 'INVALID_OTP', attempts >= env.OTP_MAX_ATTEMPTS ? 'Too many incorrect attempts. Request a new code.' : 'The verification code is incorrect');
+    const [updated] = await db.update(emailOtps)
+      .set({ attempts: sql`${emailOtps.attempts} + 1` })
+      .where(and(
+        eq(emailOtps.userId, user.id),
+        lt(emailOtps.attempts, env.OTP_MAX_ATTEMPTS),
+        gt(emailOtps.expiresAt, new Date())
+      ))
+      .returning({ attempts: emailOtps.attempts });
+    const message = !updated
+      ? 'The verification code is invalid or expired'
+      : updated.attempts >= env.OTP_MAX_ATTEMPTS
+        ? 'Too many incorrect attempts. Request a new code.'
+        : 'The verification code is incorrect';
+    throw new AppError(400, 'INVALID_OTP', message);
   }
 
   await db.transaction(async (tx) => {
@@ -149,7 +162,10 @@ const resendVerification: ResendHandler = async (req, res) => {
     set: { codeHash: hashOtp(code), expiresAt, attempts: 0, sentAt }
   });
 
-  await sendVerificationCode(req, email, code, user.id, 'auth.otp_resent');
+  const sent = await sendVerificationCode(req, email, code, user.id, 'auth.otp_resent');
+  if (!sent) {
+    throw new AppError(502, 'EMAIL_DELIVERY_FAILED', 'Could not send the verification email. Try again shortly.');
+  }
 
   res.json({ data: { sent: true } });
 };

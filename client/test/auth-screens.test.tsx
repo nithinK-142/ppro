@@ -77,7 +77,7 @@ describe('auth screens', () => {
   });
 
   it('register normalizes email and routes to verification', async () => {
-    authApi.register.mockResolvedValue({ userId: 1, email: 'user@example.com', verificationRequired: true });
+    authApi.register.mockResolvedValue({ userId: 1, email: 'user@example.com', verificationRequired: true, verificationEmailSent: true });
     await render(<Register />);
     await fireEvent.changeText(screen.getByLabelText('Email'), ' USER@example.com ');
     await fireEvent.changeText(screen.getByLabelText('Password'), 'StrongPass123!');
@@ -90,7 +90,20 @@ describe('auth screens', () => {
     });
     expect(testRouter.push).toHaveBeenCalledWith({
       pathname: '/(auth)/verify',
-      params: { email: 'user@example.com' }
+      params: { email: 'user@example.com', verificationEmailSent: 'true' }
+    });
+  });
+
+  it('register passes email delivery failure to verification screen', async () => {
+    authApi.register.mockResolvedValue({ userId: 1, email: 'user@example.com', verificationRequired: true, verificationEmailSent: false });
+    await render(<Register />);
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'user@example.com');
+    await fireEvent.changeText(screen.getByLabelText('Password'), 'StrongPass123!');
+    await fireEvent.changeText(screen.getByLabelText('Confirm password'), 'StrongPass123!');
+    await fireEvent.press(screen.getByTestId('register-submit'));
+    expect(testRouter.push).toHaveBeenCalledWith({
+      pathname: '/(auth)/verify',
+      params: { email: 'user@example.com', verificationEmailSent: 'false' }
     });
   });
 
@@ -102,6 +115,18 @@ describe('auth screens', () => {
     await fireEvent.changeText(screen.getByLabelText('Confirm password'), 'StrongPass123!');
     await fireEvent.press(screen.getByTestId('register-submit'));
     expect(screen.getByText('Email already exists')).toBeTruthy();
+  });
+
+  it('verify explains when the initial verification email was not sent', async () => {
+    routeParams.email = 'user@example.com';
+    routeParams.verificationEmailSent = 'false';
+    authApi.resendVerification.mockResolvedValue({ sent: true });
+    await render(<Verify />);
+    expect(screen.getByText('EMAIL NOT SENT')).toBeTruthy();
+    expect(screen.getByText(/couldn't send a verification code to/)).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Send again' }));
+    expect(screen.getByText('CHECK YOUR EMAIL')).toBeTruthy();
+    expect(screen.getByText(/We sent a verification code to/)).toBeTruthy();
   });
 
   it('verify sanitizes OTP input and blocks incomplete submissions', async () => {

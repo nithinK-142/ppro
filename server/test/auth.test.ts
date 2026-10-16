@@ -5,6 +5,7 @@ import app from '../src/app.ts';
 import { eq } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { db } from '../src/config/db.ts';
+import env from '../src/config/env.ts';
 import { emailOtps, refreshTokens, users } from '../src/config/schema.ts';
 import { generateOtp, hashOtp } from '../src/utils/otp.ts';
 import { authHeader, createProfile, createUser, otpRecord, selectTasks, taskId } from './helpers.ts';
@@ -27,6 +28,7 @@ describe('authentication', () => {
 
     expect(response.body.data.email).toBe('test@example.com');
     expect(response.body.data.verificationRequired).toBe(true);
+    expect(response.body.data.verificationEmailSent).toBe(true);
 
     const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, response.body.data.userId)).limit(1);
     expect(user?.email).toBe('test@example.com');
@@ -37,16 +39,30 @@ describe('authentication', () => {
     expect(sendOtpMock).toHaveBeenCalledWith('test@example.com', expect.stringMatching(/^\d{6}$/));
   });
 
-  it('keeps registration successful when the email provider fails', async () => {
-    sendOtpMock.mockRejectedValueOnce(new Error('mail provider unavailable'));
+  it('reports registration success separately from verification email delivery', async () => {
+    sendOtpMock.mockRejectedValueOnce(Object.assign(new Error('mail provider unavailable'), { code: 'MAILJET_API_ERROR', statusCode: 503 }));
 
     const response = await request(app)
       .post('/api/v1/auth/register')
       .send({ email: 'mail-failure@example.com', password: validPassword, confirmPassword: validPassword })
       .expect(201);
 
-    expect(response.body.data.verificationRequired).toBe(true);
+    expect(response.body.data).toMatchObject({ verificationRequired: true, verificationEmailSent: false });
+    expect(await otpRecord(response.body.data.userId)).not.toBeNull();
     expect(sendOtpMock).toHaveBeenCalledOnce();
+  });
+
+  it('reports resend delivery failures instead of claiming the OTP was sent', async () => {
+    const user = await createUser({ email: 'resend-mail-failure@example.com', verified: false });
+    sendOtpMock.mockRejectedValueOnce(new Error('mail provider unavailable'));
+
+    const response = await request(app)
+      .post('/api/v1/auth/resend-verification')
+      .send({ email: user.email })
+      .expect(502);
+
+    expect(response.body.error.code).toBe('EMAIL_DELIVERY_FAILED');
+    expect(response.body.error.requestId).toBeTruthy();
   });
 
   it('rejects duplicate registration for a verified account', async () => {
@@ -160,6 +176,25 @@ describe('authentication', () => {
       .send({ email: user.email, otp: '123456' })
       .expect(400);
     expect(blocked.body.error.code).toBe('INVALID_OTP');
+  });
+
+  it('does not lose OTP attempt increments under concurrent incorrect submissions', async () => {
+    const user = await createUser({ email: 'otp-concurrent@example.com', verified: false });
+    const startingAttempts = Math.max(0, env.OTP_MAX_ATTEMPTS - 2);
+    await db.insert(emailOtps).values({
+      userId: user.id,
+      codeHash: hashOtp('123456'),
+      expiresAt: new Date(Date.now() + 600_000),
+      attempts: startingAttempts,
+      sentAt: new Date()
+    });
+
+    const responses = await Promise.all(Array.from({ length: 6 }, () => request(app)
+      .post('/api/v1/auth/verify-email')
+      .send({ email: user.email, otp: '000000' })));
+
+    expect(responses.every((response) => response.status === 400)).toBe(true);
+    expect((await otpRecord(user.id))?.attempts).toBe(env.OTP_MAX_ATTEMPTS);
   });
 
   it('resends verification when cooldown has elapsed or no OTP exists', async () => {

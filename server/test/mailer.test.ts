@@ -32,7 +32,7 @@ afterEach(() => {
 describe('mailer', () => {
   it('sends the verification email with authentication and the OTP', async () => {
     const { sendOtp } = await loadMailer();
-    fetchMock.mockResolvedValue({ ok: true, status: 200, text: vi.fn() });
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: vi.fn().mockResolvedValue({ Messages: [{ Status: 'success' }] }) });
 
     await sendOtp('user@example.com', '012345');
 
@@ -50,6 +50,20 @@ describe('mailer', () => {
     expect(body.Messages[0].To).toEqual([{ Email: 'user@example.com' }]);
     expect(body.Messages[0].TextPart).toContain('012345');
     expect(body.Messages[0].HTMLPart).toContain('012345');
+  });
+
+  it('rejects a provider-level message error even when the HTTP response succeeds', async () => {
+    const { sendOtp } = await loadMailer();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({ Messages: [{ Status: 'error', Errors: [{ ErrorMessage: 'invalid sender' }] }] })
+    });
+
+    await expect(sendOtp('user@example.com', '012345')).rejects.toMatchObject({
+      code: 'MAILJET_MESSAGE_REJECTED',
+      statusCode: 200
+    });
   });
 
   it('rejects non-success responses with bounded response details', async () => {

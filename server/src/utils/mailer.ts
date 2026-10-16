@@ -76,6 +76,24 @@ async function sendOtp(email: string, code: string) {
       });
       throw error;
     }
+
+    let result: { Messages?: Array<{ Status?: string }> };
+    try {
+      result = await response.json() as { Messages?: Array<{ Status?: string }> };
+    } catch (cause) {
+      throw Object.assign(new Error('Mailjet returned an invalid response'), {
+        code: 'MAILJET_INVALID_RESPONSE',
+        statusCode: response.status,
+        cause
+      });
+    }
+
+    if (result.Messages?.length !== 1 || result.Messages[0]?.Status !== 'success') {
+      throw Object.assign(new Error('Mailjet did not accept the verification message'), {
+        code: 'MAILJET_MESSAGE_REJECTED',
+        statusCode: response.status
+      });
+    }
   } catch (err: unknown) {
     if (err instanceof Error && err.name === 'AbortError') {
       const error = Object.assign(new Error('Mailjet request timeout'), {
