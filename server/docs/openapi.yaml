@@ -29,7 +29,22 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/RegisterRequest' }
       responses:
-        '201': { description: Verification required. }
+        '201':
+          description: Account created. The response reports whether the verification email was sent.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [userId, email, verificationRequired, verificationEmailSent]
+                    properties:
+                      userId: { type: integer }
+                      email: { type: string, format: email }
+                      verificationRequired: { type: boolean, const: true }
+                      verificationEmailSent: { type: boolean }
         '400': { $ref: '#/components/responses/BadRequest' }
         '409': { $ref: '#/components/responses/Conflict' }
         '429': { $ref: '#/components/responses/RateLimited' }
@@ -60,6 +75,11 @@ paths:
       responses:
         '200': { description: OTP sent. }
         '404': { description: Email not found. }
+        '502':
+          description: Mailjet rejected the verification email or the send request failed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /api/v1/auth/login:
     post:

@@ -37,12 +37,14 @@ function otpWindow() {
   return { sentAt, expiresAt };
 }
 
-async function sendVerificationCode(req: Request, email: string, code: string, userId: number, event: 'auth.otp_sent' | 'auth.otp_resent') {
+async function sendVerificationCode(req: Request, email: string, code: string, userId: number, event: 'auth.otp_sent' | 'auth.otp_resent'): Promise<boolean> {
   try {
     await sendOtp(email, code);
     req.log.info({ event, userId }, 'verification code sent');
-  } catch (err) {
-    req.log.error({ err, event: 'auth.otp_send_failed', userId }, 'failed to send verification code');
+    return true;
+  } catch {
+    req.log.error({ event: 'auth.otp_send_failed', userId }, 'failed to send verification code');
+    return false;
   }
 }
 
@@ -77,10 +79,10 @@ const register: RegisterHandler = async (req, res) => {
 
   req.log.info({ event: 'auth.registered', userId }, 'user registered');
 
-  await sendVerificationCode(req, email, code, userId, 'auth.otp_sent');
+  const verificationEmailSent = await sendVerificationCode(req, email, code, userId, 'auth.otp_sent');
 
   res.status(201).json({
-    data: { userId, email, verificationRequired: true }
+    data: { userId, email, verificationRequired: true, verificationEmailSent }
   });
 };
 
@@ -149,7 +151,10 @@ const resendVerification: ResendHandler = async (req, res) => {
     set: { codeHash: hashOtp(code), expiresAt, attempts: 0, sentAt }
   });
 
-  await sendVerificationCode(req, email, code, user.id, 'auth.otp_resent');
+  const sent = await sendVerificationCode(req, email, code, user.id, 'auth.otp_resent');
+  if (!sent) {
+    throw new AppError(502, 'EMAIL_DELIVERY_FAILED', 'Could not send the verification email. Try again shortly.');
+  }
 
   res.json({ data: { sent: true } });
 };

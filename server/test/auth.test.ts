@@ -27,6 +27,7 @@ describe('authentication', () => {
 
     expect(response.body.data.email).toBe('test@example.com');
     expect(response.body.data.verificationRequired).toBe(true);
+    expect(response.body.data.verificationEmailSent).toBe(true);
 
     const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, response.body.data.userId)).limit(1);
     expect(user?.email).toBe('test@example.com');
@@ -37,16 +38,30 @@ describe('authentication', () => {
     expect(sendOtpMock).toHaveBeenCalledWith('test@example.com', expect.stringMatching(/^\d{6}$/));
   });
 
-  it('keeps registration successful when the email provider fails', async () => {
-    sendOtpMock.mockRejectedValueOnce(new Error('mail provider unavailable'));
+  it('reports registration success separately from verification email delivery', async () => {
+    sendOtpMock.mockRejectedValueOnce(Object.assign(new Error('mail provider unavailable'), { code: 'MAILJET_API_ERROR', statusCode: 503 }));
 
     const response = await request(app)
       .post('/api/v1/auth/register')
       .send({ email: 'mail-failure@example.com', password: validPassword, confirmPassword: validPassword })
       .expect(201);
 
-    expect(response.body.data.verificationRequired).toBe(true);
+    expect(response.body.data).toMatchObject({ verificationRequired: true, verificationEmailSent: false });
+    expect(await otpRecord(response.body.data.userId)).not.toBeNull();
     expect(sendOtpMock).toHaveBeenCalledOnce();
+  });
+
+  it('reports resend delivery failures instead of claiming the OTP was sent', async () => {
+    const user = await createUser({ email: 'resend-mail-failure@example.com', verified: false });
+    sendOtpMock.mockRejectedValueOnce(new Error('mail provider unavailable'));
+
+    const response = await request(app)
+      .post('/api/v1/auth/resend-verification')
+      .send({ email: user.email })
+      .expect(502);
+
+    expect(response.body.error.code).toBe('EMAIL_DELIVERY_FAILED');
+    expect(response.body.error.requestId).toBeTruthy();
   });
 
   it('rejects duplicate registration for a verified account', async () => {

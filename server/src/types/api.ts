@@ -40,6 +40,7 @@ export interface RegisterData {
   userId: number;
   email: string;
   verificationRequired: true;
+  verificationEmailSent: boolean;
 }
 
 export interface VerificationData {
