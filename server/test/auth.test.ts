@@ -5,6 +5,7 @@ import app from '../src/app.ts';
 import { eq } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { db } from '../src/config/db.ts';
+import env from '../src/config/env.ts';
 import { emailOtps, refreshTokens, users } from '../src/config/schema.ts';
 import { generateOtp, hashOtp } from '../src/utils/otp.ts';
 import { authHeader, createProfile, createUser, otpRecord, selectTasks, taskId } from './helpers.ts';
@@ -175,6 +176,25 @@ describe('authentication', () => {
       .send({ email: user.email, otp: '123456' })
       .expect(400);
     expect(blocked.body.error.code).toBe('INVALID_OTP');
+  });
+
+  it('does not lose OTP attempt increments under concurrent incorrect submissions', async () => {
+    const user = await createUser({ email: 'otp-concurrent@example.com', verified: false });
+    const startingAttempts = Math.max(0, env.OTP_MAX_ATTEMPTS - 2);
+    await db.insert(emailOtps).values({
+      userId: user.id,
+      codeHash: hashOtp('123456'),
+      expiresAt: new Date(Date.now() + 600_000),
+      attempts: startingAttempts,
+      sentAt: new Date()
+    });
+
+    const responses = await Promise.all(Array.from({ length: 6 }, () => request(app)
+      .post('/api/v1/auth/verify-email')
+      .send({ email: user.email, otp: '000000' })));
+
+    expect(responses.every((response) => response.status === 400)).toBe(true);
+    expect((await otpRecord(user.id))?.attempts).toBe(env.OTP_MAX_ATTEMPTS);
   });
 
   it('resends verification when cooldown has elapsed or no OTP exists', async () => {
