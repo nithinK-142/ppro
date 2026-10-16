@@ -27,8 +27,11 @@ export default function Register() {
 
     setLoading(true);
     try {
-      await registerRequest({ email: normalizedEmail, password, confirmPassword });
-      router.push({ pathname: '/(auth)/verify', params: { email: normalizedEmail } });
+      const result = await registerRequest({ email: normalizedEmail, password, confirmPassword });
+      router.push({
+        pathname: '/(auth)/verify',
+        params: { email: normalizedEmail, verificationEmailSent: String(result.verificationEmailSent) }
+      });
     } catch (error: unknown) {
       setMessage(getErrorMessage(error, 'Unable to create account.'));
     } finally {
