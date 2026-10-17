@@ -6,8 +6,7 @@ export const tasks = pgTable('tasks', {
   category: text().notNull(),
   description: text().notNull()
 }, (table) => [
-  index('idx_tasks_category').on(table.category),
-  index('idx_tasks_name').on(table.name)
+  index('idx_tasks_category').on(table.category)
 ]);
 
 export type TaskRow = Pick<typeof tasks.$inferSelect, 'id' | 'name' | 'category' | 'description'>;

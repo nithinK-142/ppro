@@ -51,7 +51,6 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tasks_category ON tasks(category);
-CREATE INDEX IF NOT EXISTS idx_tasks_name ON tasks(name);
 
 CREATE TABLE IF NOT EXISTS user_tasks (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -60,4 +59,3 @@ CREATE TABLE IF NOT EXISTS user_tasks (
   PRIMARY KEY (user_id, task_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_user_tasks_user_id ON user_tasks(user_id);
