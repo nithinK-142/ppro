@@ -1,5 +1,5 @@
 import express from 'express';
-import { pingDatabase } from '../config/db.ts';
+import { pingDatabase } from '../db/index.ts';
 import captureRoute from '../middleware/route-context.ts';
 
 const router = express.Router();

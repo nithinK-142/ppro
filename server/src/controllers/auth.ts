@@ -2,9 +2,9 @@ import bcrypt from 'bcrypt';
 import type { Request, RequestHandler, Response } from 'express';
 import type { z } from 'zod';
 import { and, eq, gt, lt, sql } from 'drizzle-orm';
-import { db } from '../config/db.ts';
-import { emailOtps, profiles, users } from '../config/schema.ts';
-import { findUserByEmail, getSelectedTasks } from '../config/queries.ts';
+import { db } from '../db/index.ts';
+import { emailOtps, profiles, users } from '../db/schema/index.ts';
+import { findUserByEmail, getSelectedTasks } from '../db/queries.ts';
 import type { DataResponse, LoginData, LogoutData, RegisterData, RefreshData, ResendData, VerificationData } from '../types/api.ts';
 import env from '../config/env.ts';
 import AppError from '../utils/app-error.ts';
@@ -204,8 +204,8 @@ const login: LoginHandler = async (req, res) => {
   res.json({
     data: {
       ...tokens,
-      user: { id: user.id, email: user.email, emailVerifiedAt: user.emailVerifiedAt },
-      profile: profile || null,
+      user: { id: user.id, email: user.email, emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null },
+      profile: profile ? { ...profile, updated_at: profile.updated_at.toISOString() } : null,
       selectedTasks,
       setupComplete: Boolean(profile && selectedTasks.length)
     }

@@ -12,14 +12,35 @@ paths:
       responses:
         '200':
           description: Server is running.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, const: ok }
   /health/ready:
     get:
       summary: Readiness check
       responses:
         '200':
           description: Server and database are ready.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, const: ok }
         '503':
           description: Dependency not ready.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, const: not_ready }
   /api/v1/auth/register:
     post:
       summary: Register
@@ -57,7 +78,11 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/VerifyRequest' }
       responses:
-        '200': { description: Email verified. }
+        '200':
+          description: Email verified.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VerificationResponse' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /api/v1/auth/resend-verification:
@@ -73,8 +98,13 @@ paths:
               properties:
                 email: { type: string, format: email }
       responses:
-        '200': { description: OTP sent. }
-        '404': { description: Email not found. }
+        '200':
+          description: Verification code sent, or email was already verified.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ResendResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '502':
           description: Mailjet rejected the verification email or the send request failed.
           content:
@@ -96,9 +126,14 @@ paths:
                 password: { type: string, minLength: 8, maxLength: 72 }
       responses:
         '200':
-          description: Short-lived access token, rotating refresh token, and current session state returned.
-        '401': { description: Invalid credentials. }
-        '403': { description: Email not verified. }
+          description: Tokens and current session state. Date fields are ISO 8601 strings.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /api/v1/auth/refresh:
     post:
       summary: Rotate refresh token and issue a new access token
@@ -111,9 +146,16 @@ paths:
               required: [refreshToken]
               properties:
                 refreshToken: { type: string, minLength: 32, maxLength: 200 }
+                refreshAttemptId: { type: string, minLength: 16, maxLength: 100, pattern: '^[a-zA-Z0-9_-]+$' }
       responses:
-        '200': { description: New access and refresh tokens returned; the supplied refresh token is invalidated. }
-        '401': { description: Refresh token is invalid, expired, revoked, or reused. }
+        '200':
+          description: New access and refresh tokens returned; the supplied refresh token is invalidated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /api/v1/auth/logout:
     post:
       summary: Revoke the refresh-token session family
@@ -127,15 +169,25 @@ paths:
               properties:
                 refreshToken: { type: string, minLength: 32, maxLength: 200 }
       responses:
-        '200': { description: Refresh-token session revoked. }
+        '200':
+          description: Refresh-token session revoked.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LogoutResponse' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /api/v1/profile:
     get:
       summary: Get current user profile and selected tasks
       security: [{ bearerAuth: [] }]
       responses:
-        '200': { description: Current user state. }
+        '200':
+          description: Current user state. Date fields are ISO 8601 strings.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
     patch:
       summary: Save profile
       security: [{ bearerAuth: [] }]
@@ -145,26 +197,42 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/ProfileRequest' }
       responses:
-        '200': { description: Profile saved. }
+        '200':
+          description: Profile saved. `updated_at` is an ISO 8601 string.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProfileResponse' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /api/v1/tasks:
     get:
       summary: List task catalogue
       parameters:
         - { in: query, name: search, schema: { type: string, maxLength: 60 } }
-        - { in: query, name: category, schema: { type: string } }
-        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: category, schema: { type: string, enum: ['Errands & Daily Tasks', 'Home Services', 'Travel & Tourism', 'Health & Medical', 'Senior Care', 'Events & Management'] } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, maximum: 1000, default: 1 } }
         - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
       responses:
-        '200': { description: Paginated tasks. }
+        '200':
+          description: Paginated tasks. Pagination is a sibling of `data`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaskListResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/RateLimited' }
   /api/v1/tasks/selected:
     get:
       summary: Get selected tasks
       security: [{ bearerAuth: [] }]
       responses:
-        '200': { description: Selected tasks. }
+        '200':
+          description: Selected tasks.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaskArrayResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
     put:
       summary: Save selected tasks
       security: [{ bearerAuth: [] }]
@@ -180,11 +248,17 @@ paths:
                   type: array
                   minItems: 1
                   maxItems: 30
+                  uniqueItems: true
                   items: { type: integer, minimum: 1 }
       responses:
-        '200': { description: Selection saved. }
+        '200':
+          description: Saved task selection.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaskArrayResponse' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
 components:
   securitySchemes:
     bearerAuth:
@@ -213,8 +287,136 @@ components:
         mobile: { type: string, pattern: '^\+91[0-9]{10}$' }
         address: { type: string, minLength: 5, maxLength: 300 }
         businessName: { type: string, maxLength: 120 }
+    VerificationResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [verified]
+          properties:
+            verified: { type: boolean, const: true }
+    ResendResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          oneOf:
+            - type: object
+              required: [sent]
+              properties:
+                sent: { type: boolean, const: true }
+            - type: object
+              required: [verified]
+              properties:
+                verified: { type: boolean, const: true }
+    TokenResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [accessToken, refreshToken]
+          properties:
+            accessToken: { type: string }
+            refreshToken: { type: string }
+    LogoutResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [loggedOut]
+          properties:
+            loggedOut: { type: boolean, const: true }
+    Task:
+      type: object
+      required: [id, name, category, description]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        category: { type: string }
+        description: { type: string }
+    Pagination:
+      type: object
+      required: [page, limit, total, pages]
+      properties:
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+        total: { type: integer, minimum: 0 }
+        pages: { type: integer, minimum: 0 }
+    TaskListResponse:
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Task' }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+    TaskArrayResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Task' }
+    UserSummary:
+      type: object
+      required: [id, email, emailVerifiedAt]
+      properties:
+        id: { type: integer }
+        email: { type: string, format: email }
+        emailVerifiedAt:
+          oneOf:
+            - { type: string, format: date-time }
+            - { type: 'null' }
+    Profile:
+      type: object
+      required: [name, mobile, address, businessName, updated_at]
+      properties:
+        name: { type: string }
+        mobile: { type: string }
+        address: { type: string }
+        businessName: { type: [string, 'null'] }
+        updated_at: { type: string, format: date-time }
+    SessionData:
+      type: object
+      required: [user, profile, selectedTasks, setupComplete]
+      properties:
+        user: { $ref: '#/components/schemas/UserSummary' }
+        profile:
+          oneOf:
+            - { $ref: '#/components/schemas/Profile' }
+            - { type: 'null' }
+        selectedTasks:
+          type: array
+          items: { $ref: '#/components/schemas/Task' }
+        setupComplete: { type: boolean }
+    SessionResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/SessionData' }
+    ProfileResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: '#/components/schemas/Profile' }
+    LoginResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          allOf:
+            - { $ref: '#/components/schemas/SessionData' }
+            - type: object
+              required: [accessToken, refreshToken]
+              properties:
+                accessToken: { type: string }
+                refreshToken: { type: string }
     Error:
       type: object
+      required: [error]
       properties:
         error:
           type: object
@@ -223,6 +425,7 @@ components:
             code: { type: string }
             message: { type: string }
             requestId: { type: string }
+            details: {}
   responses:
     BadRequest:
       description: Invalid request.
@@ -236,6 +439,16 @@ components:
           schema: { $ref: '#/components/schemas/Error' }
     Unauthorized:
       description: Authentication required.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Operation is not permitted.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }

@@ -1,11 +1,11 @@
 import type { RequestHandler } from 'express';
 import type { z } from 'zod';
 import { and, asc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
-import { db } from '../config/db.ts';
-import { tasks, userTasks } from '../config/schema.ts';
-import { getSelectedTasks } from '../config/queries.ts';
+import { db } from '../db/index.ts';
+import { tasks, userTasks } from '../db/schema/index.ts';
+import { getSelectedTasks } from '../db/queries.ts';
 import type { DataResponse, Pagination, TaskListData } from '../types/api.ts';
-import type { TaskRow } from '../config/schema.ts';
+import type { TaskRow } from '../db/schema/index.ts';
 import AppError from '../utils/app-error.ts';
 import { taskListQuerySchema, selectionSchema } from '../validation/tasks.ts';
 

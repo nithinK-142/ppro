@@ -1,6 +1,6 @@
 import { asc, eq } from 'drizzle-orm';
-import { db } from './db.ts';
-import { profiles, tasks, userTasks, users } from './schema.ts';
+import { db } from './index.ts';
+import { profiles, tasks, userTasks, users } from './schema/index.ts';
 
 async function findUserByEmail(email: string) {
   const [user] = await db

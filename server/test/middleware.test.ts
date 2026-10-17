@@ -133,5 +133,10 @@ describe('middleware and error handling', () => {
       .expect(429);
 
     expect(response.headers['ratelimit']).toBeTruthy();
+    expect(response.body.error).toMatchObject({
+      code: 'RATE_LIMITED',
+      message: 'Too many requests, please try again later.'
+    });
+    expect(response.body.error.requestId).toEqual(expect.any(String));
   });
 });

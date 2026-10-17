@@ -1,3 +1,15 @@
+export type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+};
+
+export type PaginatedResponse<T> = {
+  data: T[];
+  pagination: Pagination;
+};
+
 export type Task = {
   id: number;
   name: string;
@@ -16,7 +28,7 @@ export type Profile = {
   mobile: string;
   address: string;
   businessName?: string | null;
-  updated_at?: string | null;
+  updated_at: string;
 };
 
 export type SessionData = {

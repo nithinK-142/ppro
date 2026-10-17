@@ -7,6 +7,7 @@ RUN corepack enable && corepack prepare pnpm@12.6.0 --activate && pnpm install -
 COPY tsconfig.json ./
 COPY scripts ./scripts
 COPY src ./src
+COPY drizzle ./drizzle
 
 RUN pnpm build && pnpm prune --prod
 
@@ -16,6 +17,7 @@ WORKDIR /app
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/drizzle ./drizzle
 COPY docs ./docs
 
 RUN chown -R node:node /app

@@ -1,9 +1,9 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { and, eq, isNull, lt } from 'drizzle-orm';
-import { db } from '../config/db.ts';
+import { db } from '../db/index.ts';
 import env from '../config/env.ts';
-import { refreshTokens } from '../config/schema.ts';
+import { refreshTokens } from '../db/schema/index.ts';
 
 const REFRESH_TOKEN_BYTES = 32;
 const DAY_MS = 24 * 60 * 60 * 1000;

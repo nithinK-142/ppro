@@ -1,8 +1,8 @@
 import request from 'supertest';
 import app from '../src/app.ts';
 import { asc } from 'drizzle-orm';
-import { db } from '../src/config/db.ts';
-import { tasks } from '../src/config/schema.ts';
+import { db } from '../src/db/index.ts';
+import { tasks } from '../src/db/schema/index.ts';
 import { authHeader, createUser, selectTasks, taskId } from './helpers.ts';
 
 describe('tasks API', () => {

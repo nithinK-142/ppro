@@ -1,8 +1,8 @@
 import request from 'supertest';
 import app from '../src/app.ts';
 import { eq } from 'drizzle-orm';
-import { db } from '../src/config/db.ts';
-import { users } from '../src/config/schema.ts';
+import { db } from '../src/db/index.ts';
+import { users } from '../src/db/schema/index.ts';
 import { authHeader, createProfile, createUser, selectTasks, taskId } from './helpers.ts';
 
 describe('profile API', () => {
@@ -42,6 +42,10 @@ describe('profile API', () => {
       address: 'Bangalore, Karnataka',
       businessName: 'Padosi Homes'
     });
+    expect(response.body.data.user.emailVerifiedAt).toEqual(expect.any(String));
+    expect(Number.isNaN(Date.parse(response.body.data.user.emailVerifiedAt))).toBe(false);
+    expect(response.body.data.profile.updated_at).toEqual(expect.any(String));
+    expect(Number.isNaN(Date.parse(response.body.data.profile.updated_at))).toBe(false);
     expect(response.body.data.selectedTasks).toHaveLength(2);
     expect(response.body.data.setupComplete).toBe(true);
   });
@@ -73,6 +77,8 @@ describe('profile API', () => {
       .expect(200);
 
     expect(response.body.data.businessName).toBeNull();
+    expect(response.body.data.updated_at).toEqual(expect.any(String));
+    expect(Number.isNaN(Date.parse(response.body.data.updated_at))).toBe(false);
     expect(response.body.data.name).toBe('Nithin Kumar');
   });
 

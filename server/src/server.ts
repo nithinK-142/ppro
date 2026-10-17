@@ -1,7 +1,7 @@
 import app from './app.ts';
 import env from './config/env.ts';
-import { closeDatabase } from './config/db.ts';
-import { seedTasks } from './config/seed.ts';
+import { closeDatabase } from './db/index.ts';
+import { seedTasks } from './db/seed.ts';
 import logger from './utils/logger.ts';
 import { flushTraces } from './observability/tracing.ts';
 

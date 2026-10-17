@@ -1,9 +1,9 @@
 import type { RequestHandler } from 'express';
 import type { z } from 'zod';
 import { eq } from 'drizzle-orm';
-import { db } from '../config/db.ts';
-import { profiles, users } from '../config/schema.ts';
-import { getSelectedTasks } from '../config/queries.ts';
+import { db } from '../db/index.ts';
+import { profiles, users } from '../db/schema/index.ts';
+import { getSelectedTasks } from '../db/queries.ts';
 import type { DataResponse, ProfileData, SessionData } from '../types/api.ts';
 import AppError from '../utils/app-error.ts';
 import { profileSchema } from '../validation/profile.ts';
@@ -41,12 +41,12 @@ const getMe: ProfileHandler = async (req, res) => {
     mobile: row.mobile!,
     address: row.address!,
     businessName: row.businessName,
-    updated_at: row.profile_updated_at!
+    updated_at: row.profile_updated_at!.toISOString()
   } : null;
 
   res.json({
     data: {
-      user: { id: row.id, email: row.email, emailVerifiedAt: row.emailVerifiedAt },
+      user: { id: row.id, email: row.email, emailVerifiedAt: row.emailVerifiedAt?.toISOString() ?? null },
       profile,
       selectedTasks,
       setupComplete: Boolean(profile && selectedTasks.length)
@@ -85,7 +85,7 @@ const updateProfile: UpdateProfileHandler = async (req, res) => {
 
   if (!profile) throw new AppError(500, 'INTERNAL_ERROR', 'Failed to load updated profile');
 
-  res.json({ data: profile });
+  res.json({ data: { ...profile, updated_at: profile.updated_at.toISOString() } });
 };
 
 export { getMe, updateProfile };
