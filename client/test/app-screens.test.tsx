@@ -48,6 +48,7 @@ const tasks = [
   { id: 2, name: 'Doctor appointment', category: 'Health & Medical', description: 'Coordinate a doctor appointment.' },
   { id: 3, name: 'Grocery restocking', category: 'Errands & Daily Tasks', description: 'Restock the home.' }
 ];
+const taskPage = { data: tasks, pagination: { page: 1, limit: 50, total: tasks.length, pages: 1 } };
 
 describe('onboarding profile screen', () => {
   it('validates required fields before saving', async () => {
@@ -87,7 +88,7 @@ describe('onboarding profile screen', () => {
 
 describe('tasks screen', () => {
   it('loads tasks and filters by search', async () => {
-    taskApi.getTasks.mockResolvedValue(tasks);
+    taskApi.getTasks.mockResolvedValue(taskPage);
     await render(<Tasks />);
     expect(await screen.findByText('AC service visit')).toBeTruthy();
     await fireEvent.changeText(screen.getByLabelText('Search tasks'), 'doctor');
@@ -96,7 +97,7 @@ describe('tasks screen', () => {
   });
 
   it('filters by category', async () => {
-    taskApi.getTasks.mockResolvedValue(tasks);
+    taskApi.getTasks.mockResolvedValue(taskPage);
     await render(<Tasks />);
     await screen.findByText('AC service visit');
     await fireEvent.press(screen.getByRole('button', { name: 'Health & Medical' }));
@@ -105,7 +106,7 @@ describe('tasks screen', () => {
   });
 
   it('selects a task and reviews the selection', async () => {
-    taskApi.getTasks.mockResolvedValue(tasks);
+    taskApi.getTasks.mockResolvedValue(taskPage);
     authState.selectedTasks = [];
     await render(<Tasks />);
     await screen.findByText('AC service visit');
@@ -119,7 +120,7 @@ describe('tasks screen', () => {
   });
 
   it('saves selected tasks and routes home', async () => {
-    taskApi.getTasks.mockResolvedValue(tasks);
+    taskApi.getTasks.mockResolvedValue(taskPage);
     taskApi.saveSelectedTasks.mockResolvedValue([tasks[0], tasks[2]]);
     authState.selectedTasks = [tasks[0]];
     await render(<Tasks />);
@@ -133,7 +134,7 @@ describe('tasks screen', () => {
   });
 
   it('shows load errors and supports retry', async () => {
-    taskApi.getTasks.mockRejectedValueOnce(new Error('API offline')).mockResolvedValueOnce(tasks);
+    taskApi.getTasks.mockRejectedValueOnce(new Error('API offline')).mockResolvedValueOnce(taskPage);
     await render(<Tasks />);
     expect(await screen.findByText('API offline')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
@@ -142,7 +143,7 @@ describe('tasks screen', () => {
 
 
   it('shows save errors and allows retry', async () => {
-    taskApi.getTasks.mockResolvedValue(tasks);
+    taskApi.getTasks.mockResolvedValue(taskPage);
     taskApi.saveSelectedTasks.mockRejectedValueOnce(new Error('Save failed')).mockResolvedValueOnce([tasks[0]]);
     await render(<Tasks />);
     await screen.findByText('AC service visit');

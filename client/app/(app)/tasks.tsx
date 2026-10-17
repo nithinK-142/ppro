@@ -28,7 +28,7 @@ export default function Tasks() {
     setLoading(true);
     setError('');
     try {
-      setTasks(await getTasks({ limit: 50 }));
+      setTasks((await getTasks({ limit: 50 })).data);
     } catch (requestError: unknown) {
       setError(getErrorMessage(requestError, 'Unable to load tasks.'));
     } finally {

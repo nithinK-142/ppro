@@ -1,3 +1,4 @@
+import type { PaginatedResponse, Pagination } from '../types';
 import { clearTokens, getAccessToken, getRefreshToken, getRefreshAttemptId, setTokens } from '../storage/token';
 import { logger } from '../utils/logger';
 
@@ -32,7 +33,7 @@ type ErrorBody = {
   };
 };
 
-type ResponseBody<T> = { data?: T } & ErrorBody;
+type ResponseBody<T> = { data?: T; pagination?: Pagination } & ErrorBody;
 type TokenPair = { accessToken: string; refreshToken: string };
 
 let refreshInFlight: Promise<string> | null = null;
@@ -152,7 +153,12 @@ async function refreshAccessToken(): Promise<string> {
   return refreshInFlight;
 }
 
-async function requestInternal<T>(path: string, options: RequestInit, allowRefresh: boolean): Promise<T> {
+async function requestInternal<T>(
+  path: string,
+  options: RequestInit,
+  allowRefresh: boolean,
+  includePagination = false
+): Promise<T> {
   const token = await getAccessToken();
   const requestId = createRequestId();
   const method = (options.method ?? 'GET').toUpperCase();
@@ -196,7 +202,7 @@ async function requestInternal<T>(path: string, options: RequestInit, allowRefre
   }
 
   const responseRequestId = response.headers.get('X-Request-Id') || requestId;
-  const body = await response.json().catch(() => null) as ResponseBody<T> | null;
+  const body = await response.json().catch(() => null) as ResponseBody<unknown> | null;
   const durationMs = Date.now() - startedAt;
 
   if (!response.ok) {
@@ -204,13 +210,13 @@ async function requestInternal<T>(path: string, options: RequestInit, allowRefre
       if (allowRefresh) {
         const currentToken = await getAccessToken();
         if (currentToken && currentToken !== token) {
-          return requestInternal<T>(path, options, false);
+          return requestInternal<T>(path, options, false, includePagination);
         }
 
         const refreshToken = await getRefreshToken();
         if (refreshToken) {
           await refreshAccessToken();
-          return requestInternal<T>(path, options, false);
+          return requestInternal<T>(path, options, false, includePagination);
         }
       }
 
@@ -237,11 +243,17 @@ async function requestInternal<T>(path: string, options: RequestInit, allowRefre
     durationMs
   });
 
-  return body?.data as T;
+  return (includePagination
+    ? { data: body?.data, pagination: body?.pagination }
+    : body?.data) as T;
 }
 
 export function request<T>(path: string, options: RequestInit = {}) {
   return requestInternal<T>(path, options, true);
+}
+
+export function paginatedRequest<T>(path: string): Promise<PaginatedResponse<T>> {
+  return requestInternal<PaginatedResponse<T>>(path, {}, true, true);
 }
 
 export function jsonRequest<T>(path: string, method: 'POST' | 'PUT' | 'PATCH', body: unknown) {

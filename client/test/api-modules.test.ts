@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const request = vi.hoisted(() => vi.fn());
 const jsonRequest = vi.hoisted(() => vi.fn());
+const paginatedRequest = vi.hoisted(() => vi.fn());
 
-vi.mock('../src/api/client', () => ({ request, jsonRequest }));
+vi.mock('../src/api/client', () => ({ request, jsonRequest, paginatedRequest }));
 
 async function loadApi() {
   return {
@@ -18,6 +19,7 @@ describe('API feature wrappers', () => {
     vi.resetModules();
     request.mockReset();
     jsonRequest.mockReset();
+    paginatedRequest.mockReset();
   });
 
   it('uses the correct auth endpoints', async () => {
@@ -48,36 +50,40 @@ describe('API feature wrappers', () => {
   });
 
   it('fetches task pages and saves selection', async () => {
-    request.mockResolvedValue([{ id: 1 }]);
+    paginatedRequest.mockResolvedValue({ data: [{ id: 1 }], pagination: { page: 2, limit: 10, total: 11, pages: 2 } });
     jsonRequest.mockResolvedValue([{ id: 1 }]);
     const { tasks } = await loadApi();
 
-    await tasks.getTasks({ search: 'cleaning', category: 'Home Services', page: 2, limit: 10 });
+    const page = await tasks.getTasks({ search: 'cleaning', category: 'Home Services', page: 2, limit: 10 });
+    expect(page.pagination).toEqual({ page: 2, limit: 10, total: 11, pages: 2 });
+    expect(page.data).toEqual([{ id: 1 }]);
     await tasks.saveSelectedTasks([1, 2]);
 
-    expect(request).toHaveBeenCalledWith('/api/v1/tasks?search=cleaning&page=2&limit=10&category=Home+Services');
+    expect(paginatedRequest).toHaveBeenCalledWith('/api/v1/tasks?search=cleaning&page=2&limit=10&category=Home+Services');
     expect(jsonRequest).toHaveBeenCalledWith('/api/v1/tasks/selected', 'PUT', { taskIds: [1, 2] });
   });
 
   it('reuses a warm catalogue cache', async () => {
-    request.mockResolvedValue([{ id: 1 }]);
+    paginatedRequest.mockResolvedValue({ data: [{ id: 1 }], pagination: { page: 1, limit: 50, total: 1, pages: 1 } });
     const { tasks } = await loadApi();
 
-    await expect(tasks.getTasks()).resolves.toEqual([{ id: 1 }]);
-    await expect(tasks.getTasks()).resolves.toEqual([{ id: 1 }]);
-    expect(request).toHaveBeenCalledOnce();
+    const page = { data: [{ id: 1 }], pagination: { page: 1, limit: 50, total: 1, pages: 1 } };
+    await expect(tasks.getTasks()).resolves.toEqual(page);
+    await expect(tasks.getTasks()).resolves.toEqual(page);
+    expect(paginatedRequest).toHaveBeenCalledOnce();
   });
 
   it('deduplicates concurrent catalogue requests', async () => {
     let resolve!: (value: unknown) => void;
-    request.mockImplementation(() => new Promise((r) => { resolve = r; }));
+    paginatedRequest.mockImplementation(() => new Promise((r) => { resolve = r; }));
     const { tasks } = await loadApi();
 
     const first = tasks.getTasks();
     const second = tasks.getTasks();
-    expect(request).toHaveBeenCalledOnce();
+    expect(paginatedRequest).toHaveBeenCalledOnce();
 
-    resolve([{ id: 1 }]);
-    await expect(Promise.all([first, second])).resolves.toEqual([[{ id: 1 }], [{ id: 1 }]]);
+    const page = { data: [{ id: 1 }], pagination: { page: 1, limit: 50, total: 1, pages: 1 } };
+    resolve(page);
+    await expect(Promise.all([first, second])).resolves.toEqual([page, page]);
   });
 });

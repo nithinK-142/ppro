@@ -1,3 +1,15 @@
+export type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+};
+
+export type PaginatedResponse<T> = {
+  data: T[];
+  pagination: Pagination;
+};
+
 export type Task = {
   id: number;
   name: string;

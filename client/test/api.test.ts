@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, jsonRequest, request, subscribeToAuthExpiry } from '../src/api/client';
+import { ApiError, jsonRequest, paginatedRequest, request, subscribeToAuthExpiry } from '../src/api/client';
 
 const tokenApi = vi.hoisted(() => ({
   getAccessToken: vi.fn(async () => 'token-123' as string | null),
@@ -49,6 +49,16 @@ describe('API client', () => {
     expect(options.headers.get('Authorization')).toBe('Bearer token-123');
     expect(options.headers.get('Accept')).toBe('application/json');
     expect(options.headers.get('X-Request-Id')).toMatch(/^[a-z0-9-]+$/);
+  });
+
+  it('preserves pagination metadata from paginated responses', async () => {
+    const page = {
+      data: [{ id: 1, name: 'Task', category: 'Home Services', description: 'Test task' }],
+      pagination: { page: 2, limit: 10, total: 11, pages: 2 }
+    };
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(page), { status: 200 })));
+
+    await expect(paginatedRequest('/api/v1/tasks')).resolves.toEqual(page);
   });
 
   it('refreshes and rotates tokens once after an expired access token', async () => {
@@ -125,6 +135,18 @@ describe('API client', () => {
       code: 'BAD_REQUEST',
       status: 400,
       message: 'Nope'
+    });
+  });
+
+  it('preserves the API error code for rate-limited requests', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      error: { code: 'RATE_LIMITED', message: 'Too many requests, please try again later.', requestId: 'req-429' }
+    }), { status: 429 })));
+
+    await expect(request('/api/v1/tasks')).rejects.toMatchObject({
+      code: 'RATE_LIMITED',
+      status: 429,
+      message: 'Too many requests, please try again later.'
     });
   });
 
