@@ -3,7 +3,7 @@ import type { TaskRow } from '../db/schema/index.ts';
 export interface UserSummary {
   id: number;
   email: string;
-  emailVerifiedAt: Date | null;
+  emailVerifiedAt: string | null;
 }
 
 export interface ProfileData {
@@ -11,7 +11,7 @@ export interface ProfileData {
   mobile: string;
   address: string;
   businessName: string | null;
-  updated_at: Date;
+  updated_at: string;
 }
 
 export interface SessionData {

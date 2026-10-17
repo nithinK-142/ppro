@@ -286,6 +286,10 @@ describe('authentication', () => {
     expect(jwt.decode(response.body.data.accessToken)).toMatchObject({ sub: String(user.id), tokenUse: 'access' });
     expect(response.body.data).not.toHaveProperty('token');
     expect(response.body.data.user.email).toBe(user.email);
+    expect(response.body.data.user.emailVerifiedAt).toEqual(expect.any(String));
+    expect(Number.isNaN(Date.parse(response.body.data.user.emailVerifiedAt))).toBe(false);
+    expect(response.body.data.profile.updated_at).toEqual(expect.any(String));
+    expect(Number.isNaN(Date.parse(response.body.data.profile.updated_at))).toBe(false);
     await request(app)
       .get('/api/v1/profile')
       .set('Authorization', `Bearer ${response.body.data.accessToken}`)

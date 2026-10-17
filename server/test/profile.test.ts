@@ -42,6 +42,10 @@ describe('profile API', () => {
       address: 'Bangalore, Karnataka',
       businessName: 'Padosi Homes'
     });
+    expect(response.body.data.user.emailVerifiedAt).toEqual(expect.any(String));
+    expect(Number.isNaN(Date.parse(response.body.data.user.emailVerifiedAt))).toBe(false);
+    expect(response.body.data.profile.updated_at).toEqual(expect.any(String));
+    expect(Number.isNaN(Date.parse(response.body.data.profile.updated_at))).toBe(false);
     expect(response.body.data.selectedTasks).toHaveLength(2);
     expect(response.body.data.setupComplete).toBe(true);
   });
@@ -73,6 +77,8 @@ describe('profile API', () => {
       .expect(200);
 
     expect(response.body.data.businessName).toBeNull();
+    expect(response.body.data.updated_at).toEqual(expect.any(String));
+    expect(Number.isNaN(Date.parse(response.body.data.updated_at))).toBe(false);
     expect(response.body.data.name).toBe('Nithin Kumar');
   });
 

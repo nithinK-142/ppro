@@ -204,8 +204,8 @@ const login: LoginHandler = async (req, res) => {
   res.json({
     data: {
       ...tokens,
-      user: { id: user.id, email: user.email, emailVerifiedAt: user.emailVerifiedAt },
-      profile: profile || null,
+      user: { id: user.id, email: user.email, emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null },
+      profile: profile ? { ...profile, updated_at: profile.updated_at.toISOString() } : null,
       selectedTasks,
       setupComplete: Boolean(profile && selectedTasks.length)
     }

@@ -28,7 +28,7 @@ export type Profile = {
   mobile: string;
   address: string;
   businessName?: string | null;
-  updated_at?: string | null;
+  updated_at: string;
 };
 
 export type SessionData = {
