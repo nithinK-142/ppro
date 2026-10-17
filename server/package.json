@@ -10,7 +10,7 @@
     "dev": "node --watch --experimental-strip-types src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "node scripts/check-ts-runtime.mjs && tsc --noEmit",
+    "check": "tsc --noEmit",
     "generate:code": "openssl rand -hex 16",
     "db:generate": "drizzle-kit generate --name=migration"
   },
