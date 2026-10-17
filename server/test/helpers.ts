@@ -2,8 +2,8 @@ import { beforeEach } from 'vitest';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
-import { db } from '../src/config/db.ts';
-import { emailOtps, profiles, tasks, userTasks, users } from '../src/config/schema.ts';
+import { db } from '../src/db/index.ts';
+import { emailOtps, profiles, tasks, userTasks, users } from '../src/db/schema/index.ts';
 import env from '../src/config/env.ts';
 
 type UserOptions = {

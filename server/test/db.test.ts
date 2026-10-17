@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { db, pingDatabase } from '../src/config/db.ts';
-import { profiles, tasks, userTasks, users } from '../src/config/schema.ts';
+import { db, pingDatabase } from '../src/db/index.ts';
+import { profiles, tasks, userTasks, users } from '../src/db/schema/index.ts';
 
 const email = `transaction-${Date.now()}@example.com`;
 

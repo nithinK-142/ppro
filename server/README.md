@@ -110,7 +110,8 @@ src/
 ├── routes/        API routes
 ├── middleware/    Auth, validation, rate limiting, request logging
 ├── validation/    Zod request schemas
-├── config/        Environment, database, Drizzle schema, SQL bootstrap, and seed data
+├── config/        Environment configuration
+├── db/            PostgreSQL connection, queries, seed data, and Drizzle schema
 ├── utils/         Application errors, logging, OTP, and email helpers
 └── types/         API types
 ```
@@ -175,9 +176,9 @@ Authorization and cookies are redacted from logs.
 
 A compatible PostgreSQL service stores application data through Drizzle ORM and the standard `pg` driver. The application does not depend on a Neon-specific database SDK.
 
-`src/config/schema.ts` defines the typed PostgreSQL tables used by application queries. `src/config/schema.sql` remains the startup schema bootstrap so the assignment still initializes a fresh database without a separate migration step.
+`src/db/schema/index.ts` defines the typed PostgreSQL tables used by application queries. `src/db/schema.sql` remains the startup schema bootstrap so the assignment still initializes a fresh database without a separate migration step.
 
-`src/config/seed.ts` seeds 30 task records across six categories.
+`src/db/seed.ts` seeds 30 task records across six categories.
 
 ## Checks and build
 

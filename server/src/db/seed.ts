@@ -1,5 +1,5 @@
-import { db, initializeDatabase } from './db.ts';
-import { tasks as tasksTable } from './schema.ts';
+import { db, initializeDatabase } from './index.ts';
+import { tasks as tasksTable } from './schema/index.ts';
 import logger from '../utils/logger.ts';
 
 const tasks = [

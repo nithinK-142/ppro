@@ -4,9 +4,9 @@ import { beforeEach, vi } from 'vitest';
 import app from '../src/app.ts';
 import { eq } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
-import { db } from '../src/config/db.ts';
+import { db } from '../src/db/index.ts';
 import env from '../src/config/env.ts';
-import { emailOtps, refreshTokens, users } from '../src/config/schema.ts';
+import { emailOtps, refreshTokens, users } from '../src/db/schema/index.ts';
 import { generateOtp, hashOtp } from '../src/utils/otp.ts';
 import { authHeader, createProfile, createUser, otpRecord, selectTasks, taskId } from './helpers.ts';
 

@@ -1,8 +1,8 @@
 import request from 'supertest';
 import app from '../src/app.ts';
 import { eq } from 'drizzle-orm';
-import { db } from '../src/config/db.ts';
-import { users } from '../src/config/schema.ts';
+import { db } from '../src/db/index.ts';
+import { users } from '../src/db/schema/index.ts';
 import { authHeader, createProfile, createUser, selectTasks, taskId } from './helpers.ts';
 
 describe('profile API', () => {

@@ -7,7 +7,7 @@ import type { PoolClient } from 'pg';
 import { normalizeDatabaseCommand, observeDatabaseQuery } from '../observability/metrics.ts';
 import { finishSpan, runInParentSpanContext, runInSpanContext, startDatabaseSpan } from '../observability/tracing.ts';
 import { performance } from 'node:perf_hooks';
-import env from './env.ts';
+import env from '../config/env.ts';
 import logger from '../utils/logger.ts';
 
 const pool = new Pool({

@@ -1,9 +1,9 @@
 import type { RequestHandler } from 'express';
 import type { z } from 'zod';
 import { eq } from 'drizzle-orm';
-import { db } from '../config/db.ts';
-import { profiles, users } from '../config/schema.ts';
-import { getSelectedTasks } from '../config/queries.ts';
+import { db } from '../db/index.ts';
+import { profiles, users } from '../db/schema/index.ts';
+import { getSelectedTasks } from '../db/queries.ts';
 import type { DataResponse, ProfileData, SessionData } from '../types/api.ts';
 import AppError from '../utils/app-error.ts';
 import { profileSchema } from '../validation/profile.ts';
