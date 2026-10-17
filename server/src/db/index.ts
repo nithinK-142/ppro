@@ -1,7 +1,7 @@
-import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { Client, Pool } from 'pg';
+import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { sql } from 'drizzle-orm';
 import type { PoolClient } from 'pg';
 import { normalizeDatabaseCommand, observeDatabaseQuery } from '../observability/metrics.ts';
@@ -71,24 +71,9 @@ let initializePromise: Promise<void> | undefined;
 
 async function initializeDatabase() {
   if (!initializePromise) {
-    initializePromise = (async () => {
-      const client = new Client({
-        connectionString: env.DATABASE_URL,
-        connectionTimeoutMillis: env.DATABASE_CONNECTION_TIMEOUT_MS
-      });
-      let connected = false;
-
-      try {
-        await client.connect();
-        connected = true;
-
-        const schemaPath = fileURLToPath(new URL('./schema.sql', import.meta.url));
-        const schema = fs.readFileSync(schemaPath, 'utf8');
-        await client.query(schema);
-      } finally {
-        if (connected) await client.end();
-      }
-    })().catch((error: unknown) => {
+    initializePromise = migrate(db, {
+      migrationsFolder: fileURLToPath(new URL('../../drizzle/', import.meta.url))
+    }).catch((error: unknown) => {
       initializePromise = undefined;
       throw error;
     });

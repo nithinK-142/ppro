@@ -114,11 +114,14 @@ src/
 ├── db/            PostgreSQL connection, queries, seed data, and Drizzle schema
 ├── utils/         Application errors, logging, OTP, and email helpers
 └── types/         API types
+
+
+drizzle/           Versioned SQL migrations and Drizzle Kit snapshots
 ```
 
 Requests flow through routes → middleware → controllers.
 
-Controllers use Drizzle for typed PostgreSQL queries and transactions; raw SQL is kept only for the small startup schema bootstrap and database health check. Validation uses Zod. Authentication uses JWT and bcrypt.
+Controllers use Drizzle for typed PostgreSQL queries and transactions. Pending schema migrations are applied at startup; task seeding stays separate. Validation uses Zod. Authentication uses JWT and bcrypt.
 
 ## Flow
 
@@ -176,7 +179,7 @@ Authorization and cookies are redacted from logs.
 
 A compatible PostgreSQL service stores application data through Drizzle ORM and the standard `pg` driver. The application does not depend on a Neon-specific database SDK.
 
-`src/db/schema/index.ts` defines the typed PostgreSQL tables used by application queries. `src/db/schema.sql` remains the startup schema bootstrap so the assignment still initializes a fresh database without a separate migration step.
+`src/db/schema/` contains table definitions grouped by domain, with `src/db/schema/index.ts` as the application export entry point. `drizzle.config.ts` explicitly lists the domain files so Drizzle Kit does not load the barrel twice. The first migration is `drizzle/0000_migration.sql`. For future schema changes, run `pnpm db:generate` and commit the generated SQL and `drizzle/meta` files. The script uses the fixed migration suffix `migration`; the numeric prefix keeps filenames unique. Keep `drizzle/` in Git and do not generate migrations during build or deployment. The application applies pending migrations at startup. Databases created using the previous SQL bootstrap need a verified baseline/adoption strategy before the first generated migration is applied, to avoid recreating existing tables.
 
 `src/db/seed.ts` seeds 30 task records across six categories.
 
@@ -187,7 +190,7 @@ pnpm check
 pnpm build
 ```
 
-`pnpm check` validates the TypeScript runtime import contract before running the TypeScript compiler. `pnpm build` emits compiled JavaScript to `dist/` and copies the database schema alongside it.
+`pnpm check` validates the TypeScript runtime import contract before running the TypeScript compiler. `pnpm build` emits compiled JavaScript to `dist/`. Docker includes the versioned migrations alongside the compiled API.
 
 ## Tests
 

@@ -14,7 +14,7 @@
 
 - A compatible PostgreSQL service stores backend data through Drizzle ORM and the standard `pg` driver. Database-specific behavior is configured through the connection URL and connection options, not a provider SDK.
 
-- `server/src/db/schema/` contains the typed Drizzle table definitions, re-exported through `server/src/db/schema/index.ts`. Database connection and startup initialization live in `server/src/db/index.ts`; queries and seed data live beside it. PostgreSQL foreign keys and indexes are represented by the Drizzle schema.
+- `server/src/db/` contains the PostgreSQL connection and query modules. Typed table definitions live under `server/src/db/schema/` and are re-exported through `server/src/db/schema/index.ts`. Drizzle Kit generates versioned SQL migrations under `server/drizzle/`; PostgreSQL enforces the resulting foreign keys and indexes. Environment configuration stays under `server/src/config/`.
 
 - Profiles store Name, Indian mobile number, Address, and Business Name. Business Name is optional because not every household has a business name.
 
@@ -90,7 +90,7 @@ The implemented flow covers:
 
 ## Trade-offs
 
-- **Database access:** Typed PostgreSQL queries keep data access readable as the codebase grows. Handwritten SQL is simple for a small project, but a large number of raw queries and parameter lists can become harder to read and maintain. Database connection, queries, seed data, and domain table definitions are grouped under `src/db/`; environment variables remain under `src/config/`.
+- **Database access:** Typed PostgreSQL queries keep data access readable as the codebase grows. Drizzle Kit generates versioned migrations from the domain schema files, and the application applies pending migrations at startup. Before applying the initial migration to a database created by the old bootstrap, verify a safe baseline strategy to avoid duplicate table creation.
 
 - **Access/refresh sessions:** Access JWTs remain stateless and are short-lived. Refresh tokens are stored as hashes, rotated on use, and revoked by session family on logout or detected reuse. Already-issued access JWTs remain valid until their short expiry after logout; immediate revocation would require a denylist or server-side session lookup.
 - **OTP stored as a hash:** Safer if the database is exposed. The original OTP cannot be retrieved later.
