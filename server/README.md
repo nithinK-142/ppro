@@ -81,6 +81,7 @@ Set the following variables in the deployment environment:
 - `CLIENT_ORIGIN` — Allowed frontend origin(s) for cross-origin requests.
 - `TRUST_PROXY` — Whether the API trusts forwarded request information from a reverse proxy.
 - `LOG_LEVEL` — Minimum severity level for logs, such as `info`, `warn`, or `error`.
+- `OBSERVABILITY_ENABLED` — `true` enables API metrics, tracing, and Pino logs; `false` disables them (default: `true`). Restart the API after changing it. The flag does not stop the separate Prometheus, Grafana, or Tempo containers.
 - `METRICS_TOKEN` — bearer token for the protected `/metrics` endpoint
 - `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` — optional OTLP/HTTP trace receiver URL
 - `OTEL_EXPORTER_OTLP_HEADERS` — optional URL-encoded OTLP headers
