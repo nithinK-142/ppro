@@ -27,13 +27,13 @@ describe('API feature wrappers', () => {
     const { auth } = await loadApi();
 
     await auth.register({ email: 'a@b.com', password: '12345678', confirmPassword: '12345678' });
-    await auth.verifyEmail({ email: 'a@b.com', otp: '123456' });
-    await auth.resendVerification('a@b.com');
+    await auth.verifyEmail({ registrationId: '00000000-0000-4000-8000-000000000000', otp: '123456' });
+    await auth.resendVerification('00000000-0000-4000-8000-000000000000');
     await auth.login({ email: 'a@b.com', password: '12345678' });
 
     expect(jsonRequest).toHaveBeenNthCalledWith(1, '/api/v1/auth/register', 'POST', expect.any(Object));
     expect(jsonRequest).toHaveBeenNthCalledWith(2, '/api/v1/auth/verify-email', 'POST', expect.any(Object));
-    expect(jsonRequest).toHaveBeenNthCalledWith(3, '/api/v1/auth/resend-verification', 'POST', { email: 'a@b.com' });
+    expect(jsonRequest).toHaveBeenNthCalledWith(3, '/api/v1/auth/resend-verification', 'POST', { registrationId: '00000000-0000-4000-8000-000000000000' });
     expect(jsonRequest).toHaveBeenNthCalledWith(4, '/api/v1/auth/login', 'POST', expect.any(Object));
   });
 

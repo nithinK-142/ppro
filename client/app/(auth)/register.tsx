@@ -1,4 +1,4 @@
-import { Link, router } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { register as registerRequest } from '../../src/api/auth';
@@ -10,7 +10,8 @@ import { validateCredentials } from '../../src/utils/form';
 import { getErrorMessage } from '../../src/utils/errors';
 
 export default function Register() {
-  const [email, setEmail] = useState('');
+  const params = useLocalSearchParams();
+  const [email, setEmail] = useState(() => String(params.email ?? ''));
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -30,7 +31,7 @@ export default function Register() {
       const result = await registerRequest({ email: normalizedEmail, password, confirmPassword });
       router.push({
         pathname: '/(auth)/verify',
-        params: { email: normalizedEmail, verificationEmailSent: String(result.verificationEmailSent) }
+        params: { registrationId: result.registrationId, email: normalizedEmail, verificationEmailSent: String(result.verificationEmailSent) }
       });
     } catch (error: unknown) {
       setMessage(getErrorMessage(error, 'Unable to create account.'));

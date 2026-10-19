@@ -51,7 +51,7 @@ describe('AuthProvider', () => {
 
   it('restores a valid session', async () => {
     tokenApi.getAccessToken.mockResolvedValue('token');
-    authApi.getMe.mockResolvedValue({ user: { id: 1, email: 'a@b.com', emailVerifiedAt: null }, profile: null, selectedTasks: [{ id: 1, name: 'A', category: 'Home', description: 'A' }] });
+    authApi.getMe.mockResolvedValue({ user: { id: 1, email: 'a@b.com', emailVerifiedAt: '2026-10-07T00:00:00Z' }, profile: null, selectedTasks: [{ id: 1, name: 'A', category: 'Home', description: 'A' }] });
     await render(<AuthProvider><Consumer /></AuthProvider>);
     expect(String((await screen.findByTestId('status')).props.children)).toBe('signed_in');
     expect(String(screen.getByTestId('email').props.children)).toBe('a@b.com');

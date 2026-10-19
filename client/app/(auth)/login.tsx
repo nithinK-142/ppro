@@ -1,7 +1,6 @@
 import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { ApiError } from '../../src/api/client';
 import { Button } from '../../src/components/Button';
 import { Field } from '../../src/components/Field';
 import { AuthScreen } from '../../src/components/AuthScreen';
@@ -32,11 +31,7 @@ export default function Login() {
       await signIn(normalizedEmail, password);
       router.replace('/');
     } catch (error: unknown) {
-      if (error instanceof ApiError && error.code === 'EMAIL_NOT_VERIFIED') {
-        router.push({ pathname: '/(auth)/verify', params: { email: normalizedEmail } });
-      } else {
-        setMessage(getErrorMessage(error, 'Unable to sign in.'));
-      }
+      setMessage(getErrorMessage(error, 'Unable to sign in.'));
     } finally {
       setLoading(false);
     }

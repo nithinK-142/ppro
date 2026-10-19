@@ -4,7 +4,7 @@ import { getMe } from '../api/profile';
 import { ApiError, subscribeToAuthExpiry } from '../api/client';
 import { login as loginRequest, logout as logoutRequest } from '../api/auth';
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from '../storage/token';
-import type { AuthStatus, Profile, SessionData, Task, User } from '../types';
+import type { AuthStatus, LoginResponse, Profile, SessionData, Task, User } from '../types';
 
 type AuthContextValue = {
   status: AuthStatus;
@@ -12,6 +12,7 @@ type AuthContextValue = {
   profile: Profile | null;
   selectedTasks: Task[];
   signIn: (email: string, password: string) => Promise<void>;
+  completeSignIn: (data: LoginResponse) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   updateProfile: (nextProfile: Profile) => void;
@@ -70,10 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribe;
   }, []);
 
-  async function signIn(email: string, password: string) {
-    const data = await loginRequest({ email, password });
+  async function completeSignIn(data: LoginResponse) {
     await setTokens(data.accessToken, data.refreshToken);
     applySession(data);
+  }
+
+  async function signIn(email: string, password: string) {
+    await completeSignIn(await loginRequest({ email, password }));
   }
 
   async function signOut() {
@@ -106,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       selectedTasks,
       signIn,
+      completeSignIn,
       signOut,
       refresh,
       updateProfile,

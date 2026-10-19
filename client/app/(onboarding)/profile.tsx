@@ -45,7 +45,7 @@ export default function Profile() {
     <Screen contentStyle={styles.content}>
       <Text style={styles.eyebrow}>A QUICK INTRO</Text>
       <Text style={styles.title}>Tell us enough to make this useful.</Text>
-      <Text style={styles.copy}>This is shown once, right after your first login. Your Lifestyle Manager uses it to understand the household.</Text>
+      <Text style={styles.copy}>This is shown once, right after email verification or when you sign in before setup is complete. Your Lifestyle Manager uses it to understand the household.</Text>
       <Field label="Name" value={name} onChangeText={setName} error={errors.name} />
       <Field label="Mobile number" value={mobile} onChangeText={setMobile} keyboardType="phone-pad" error={errors.mobile} />
       <Field label="Address" value={address} onChangeText={setAddress} multiline error={errors.address} />
