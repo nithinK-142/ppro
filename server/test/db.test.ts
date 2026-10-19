@@ -11,7 +11,7 @@ describe('database helpers', () => {
   });
 
   it('commits transaction changes', async () => {
-    const [user] = await db.insert(users).values({ email, passwordHash: 'hash' }).returning({ id: users.id });
+    const [user] = await db.insert(users).values({ email, passwordHash: 'hash', emailVerifiedAt: new Date() }).returning({ id: users.id });
     expect(user?.id).toBeTypeOf('number');
 
     const rows = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
@@ -24,7 +24,7 @@ describe('database helpers', () => {
     const transactionEmail = `rollback-${Date.now()}@example.com`;
 
     await expect(db.transaction(async (tx) => {
-      await tx.insert(users).values({ email: transactionEmail, passwordHash: 'hash' });
+      await tx.insert(users).values({ email: transactionEmail, passwordHash: 'hash', emailVerifiedAt: new Date() });
       throw new Error('rollback');
     })).rejects.toThrow('rollback');
 
@@ -33,7 +33,7 @@ describe('database helpers', () => {
   });
 
   it('cascades user cleanup to profile and selections', async () => {
-    const [user] = await db.insert(users).values({ email: `cascade-${Date.now()}@example.com`, passwordHash: 'hash' }).returning({ id: users.id });
+    const [user] = await db.insert(users).values({ email: `cascade-${Date.now()}@example.com`, passwordHash: 'hash', emailVerifiedAt: new Date() }).returning({ id: users.id });
     const [task] = await db.select({ id: tasks.id }).from(tasks).limit(1);
     if (!user || !task) throw new Error('Failed to prepare cascade test');
 

@@ -1,16 +1,6 @@
 import { asc, eq } from 'drizzle-orm';
 import { db } from './index.ts';
-import { profiles, tasks, userTasks, users } from './schema/index.ts';
-
-async function findUserByEmail(email: string) {
-  const [user] = await db
-    .select({ id: users.id, email: users.email, emailVerifiedAt: users.emailVerifiedAt })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-
-  return user;
-}
+import { tasks, userTasks } from './schema/index.ts';
 
 async function getSelectedTasks(userId: number) {
   return db
@@ -26,4 +16,4 @@ async function getSelectedTasks(userId: number) {
     .orderBy(asc(tasks.category), asc(tasks.name));
 }
 
-export { findUserByEmail, getSelectedTasks };
+export { getSelectedTasks };

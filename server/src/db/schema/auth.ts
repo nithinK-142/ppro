@@ -1,13 +1,18 @@
 import { index, integer, pgTable, serial, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { users } from './users.ts';
 
-export const emailOtps = pgTable('email_otps', {
-  userId: integer('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+export const unverifiedUsers = pgTable('unverified_users', {
+  registrationId: uuid('registration_id').primaryKey().defaultRandom(),
+  email: text().notNull(),
+  passwordHash: text('password_hash').notNull(),
   codeHash: text('code_hash').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
   attempts: integer().notNull().default(0),
-  sentAt: timestamp('sent_at', { withTimezone: true, mode: 'date' }).notNull()
-});
+  sentAt: timestamp('sent_at', { withTimezone: true, mode: 'date' }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
+}, (table) => [
+  index('idx_unverified_users_email').on(table.email)
+]);
 
 export const refreshTokens = pgTable('refresh_tokens', {
   id: serial().primaryKey(),

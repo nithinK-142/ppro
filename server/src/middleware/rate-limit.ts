@@ -28,8 +28,11 @@ const authAccountLimiter = rateLimit({
   handler: rateLimitHandler,
   keyGenerator: (req) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
+    const registrationId = String(req.body?.registrationId || '').trim();
     const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
-    return email ? `email:${email}` : `ip:${ipKeyGenerator(ip)}`;
+    if (email) return `email:${email}`;
+    if (registrationId) return `registration:${registrationId}`;
+    return `ip:${ipKeyGenerator(ip)}`;
   },
   standardHeaders: 'draft-8',
   legacyHeaders: false

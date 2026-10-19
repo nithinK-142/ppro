@@ -7,10 +7,13 @@ import { Button } from '../../src/components/Button';
 import { AuthScreen } from '../../src/components/AuthScreen';
 import { colors, radius, spacing } from '../../src/theme';
 import { getErrorMessage } from '../../src/utils/errors';
+import { useAuth } from '../../src/state/auth';
 
 export default function Verify() {
   const params = useLocalSearchParams();
   const email = String(params.email ?? '');
+  const registrationId = String(params.registrationId ?? '');
+  const { completeSignIn } = useAuth();
   const [verificationEmailSent, setVerificationEmailSent] = useState(
     () => String(params.verificationEmailSent ?? 'true') !== 'false'
   );
@@ -26,15 +29,16 @@ export default function Verify() {
     return () => clearInterval(timer);
   }, [seconds]);
 
-  const canSubmit = /^\d{6}$/.test(otp);
+  const canSubmit = registrationId.length > 0 && /^\d{6}$/.test(otp);
 
   const verify = async () => {
     if (!canSubmit) return;
     setLoading(true);
     setMessage('');
     try {
-      await verifyEmail({ email, otp });
-      router.replace({ pathname: '/(auth)/login', params: { verified: '1' } });
+      const session = await verifyEmail({ registrationId, otp });
+      await completeSignIn(session);
+      router.replace('/');
     } catch (error: unknown) {
       setMessage(getErrorMessage(error, 'Unable to verify email.'));
     } finally {
@@ -46,11 +50,7 @@ export default function Verify() {
     setResending(true);
     setMessage('');
     try {
-      const result = await resendVerification(email);
-      if (result.verified) {
-        router.replace({ pathname: '/(auth)/login', params: { verified: '1' } });
-        return;
-      }
+      const result = await resendVerification(registrationId);
       setVerificationEmailSent(result.sent);
       setSeconds(result.sent ? 30 : 0);
       if (result.sent) setOtp('');

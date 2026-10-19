@@ -20,7 +20,7 @@ export type Task = {
 export type User = {
   id: number;
   email: string;
-  emailVerifiedAt: string | null;
+  emailVerifiedAt: string;
 };
 
 export type Profile = {
@@ -62,7 +62,7 @@ export type LoginPayload = {
 };
 
 export type VerifyEmailPayload = {
-  email: string;
+  registrationId: string;
   otp: string;
 };
 

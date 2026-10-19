@@ -4,7 +4,7 @@ export const users = pgTable('users', {
   id: serial().primaryKey(),
   email: text().notNull().unique(),
   passwordHash: text('password_hash').notNull(),
-  emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true, mode: 'date' }),
+  emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true, mode: 'date' }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
 });
 

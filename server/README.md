@@ -131,7 +131,7 @@ register → verify email → login → profile → choose tasks → home
 
 OTP verification is required before login.
 
-Registration reports whether Mailjet accepted the verification email with `verificationEmailSent`. Resend returns `EMAIL_DELIVERY_FAILED` if sending fails. Provider acceptance does not guarantee inbox delivery. Email sending is bounded by `MAILJET_TIMEOUT_MS`.
+Registration creates a pending record in `unverified_users` and returns a UUID `registrationId`. OTP verification and resend require that identifier, so the code is bound to one pending registration. Successful verification promotes the pending password hash to `users`, issues the session, and deletes pending attempts for that email. Pending registrations expire after 24 hours; OTPs expire after 10 minutes. Registration reports whether Mailjet accepted the verification email with `verificationEmailSent`. Resend returns `EMAIL_DELIVERY_FAILED` if sending fails. Provider acceptance does not guarantee inbox delivery. Email sending is bounded by `MAILJET_TIMEOUT_MS`.
 
 ## API
 
@@ -179,7 +179,7 @@ Authorization and cookies are redacted from logs.
 
 A compatible PostgreSQL service stores application data through Drizzle ORM and the standard `pg` driver. The application does not depend on a Neon-specific database SDK.
 
-`src/db/schema/` contains table definitions grouped by domain, with `src/db/schema/index.ts` as the application export entry point. `drizzle.config.ts` explicitly lists the domain files so Drizzle Kit does not load the barrel twice. The first migration is `drizzle/0000_migration.sql`. For future schema changes, run `pnpm db:generate` and commit the generated SQL and `drizzle/meta` files. The script uses the fixed migration suffix `migration`; the numeric prefix keeps filenames unique. Keep `drizzle/` in Git and do not generate migrations during build or deployment. The application applies pending migrations at startup. Databases created using the previous SQL bootstrap need a verified baseline/adoption strategy before the first generated migration is applied, to avoid recreating existing tables.
+`src/db/schema/` contains table definitions grouped by domain, with `src/db/schema/index.ts` as the application export entry point. `drizzle.config.ts` explicitly lists the domain files so Drizzle Kit does not load the barrel twice. The first migration is `drizzle/0000_migration.sql`. For future schema changes, run `pnpm db:generate` and commit the generated SQL and `drizzle/meta` files. The script uses the fixed migration suffix `migration`; the numeric prefix keeps filenames unique. Keep `drizzle/` in Git and do not generate migrations during build or deployment. The application applies pending migrations at startup.
 
 `src/db/seed.ts` seeds 30 task records across six categories.
 
@@ -190,7 +190,7 @@ pnpm check
 pnpm build
 ```
 
-`pnpm check` validates the TypeScript runtime import contract before running the TypeScript compiler. `pnpm build` emits compiled JavaScript to `dist/`. Docker includes the versioned migrations alongside the compiled API.
+`pnpm check` runs the TypeScript compiler without emitting files. `pnpm build` emits compiled JavaScript to `dist/`. Docker includes the versioned migrations alongside the compiled API.
 
 ## Tests
 

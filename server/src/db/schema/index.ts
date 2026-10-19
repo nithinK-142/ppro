@@ -1,4 +1,4 @@
-export { emailOtps, refreshTokens } from './auth.ts';
+export { refreshTokens, unverifiedUsers } from './auth.ts';
 export { profiles } from './profiles.ts';
 export { tasks } from './tasks.ts';
 export { userTasks } from './user-tasks.ts';

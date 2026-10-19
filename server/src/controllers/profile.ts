@@ -46,7 +46,7 @@ const getMe: ProfileHandler = async (req, res) => {
 
   res.json({
     data: {
-      user: { id: row.id, email: row.email, emailVerifiedAt: row.emailVerifiedAt?.toISOString() ?? null },
+      user: { id: row.id, email: row.email, emailVerifiedAt: row.emailVerifiedAt.toISOString() },
       profile,
       selectedTasks,
       setupComplete: Boolean(profile && selectedTasks.length)

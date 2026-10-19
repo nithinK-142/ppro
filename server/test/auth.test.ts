@@ -1,4 +1,5 @@
 import request from 'supertest';
+import bcrypt from 'bcrypt';
 import { createHash } from 'node:crypto';
 import { beforeEach, vi } from 'vitest';
 import app from '../src/app.ts';
@@ -6,9 +7,9 @@ import { eq } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 import { db } from '../src/db/index.ts';
 import env from '../src/config/env.ts';
-import { emailOtps, refreshTokens, users } from '../src/db/schema/index.ts';
-import { generateOtp, hashOtp } from '../src/utils/otp.ts';
-import { authHeader, createProfile, createUser, otpRecord, selectTasks, taskId } from './helpers.ts';
+import { refreshTokens, unverifiedUsers, users } from '../src/db/schema/index.ts';
+import { hashOtp, otpMatches } from '../src/utils/otp.ts';
+import { authHeader, createProfile, createUser, selectTasks, taskId } from './helpers.ts';
 
 const { sendOtpMock } = vi.hoisted(() => ({ sendOtpMock: vi.fn() }));
 vi.mock('../src/utils/mailer.ts', () => ({ sendOtp: sendOtpMock }));
@@ -19,23 +20,40 @@ beforeEach(() => {
 
 const validPassword = 'StrongPass123!';
 
+async function beginRegistration(email: string, password = validPassword) {
+  const response = await request(app)
+    .post('/api/v1/auth/register')
+    .send({ email, password, confirmPassword: password })
+    .expect(201);
+  const registrationId = response.body.data.registrationId as string;
+  const code = sendOtpMock.mock.calls.at(-1)?.[1] as string;
+  return { response, registrationId, code };
+}
+
+async function pendingRecord(registrationId: string) {
+  const [record] = await db.select().from(unverifiedUsers)
+    .where(eq(unverifiedUsers.registrationId, registrationId)).limit(1);
+  return record ?? null;
+}
+
 describe('authentication', () => {
-  it('registers a normalized email and creates an OTP record', async () => {
-    const response = await request(app)
-      .post('/api/v1/auth/register')
-      .send({ email: ' TEST@EXAMPLE.COM ', password: validPassword, confirmPassword: validPassword })
-      .expect(201);
+  it('creates isolated pending state, hashes the password, and sends a hashed OTP', async () => {
+    const { response, registrationId, code } = await beginRegistration(' TEST@EXAMPLE.COM ');
 
-    expect(response.body.data.email).toBe('test@example.com');
-    expect(response.body.data.verificationRequired).toBe(true);
-    expect(response.body.data.verificationEmailSent).toBe(true);
-
-    const [user] = await db.select({ email: users.email }).from(users).where(eq(users.id, response.body.data.userId)).limit(1);
-    expect(user?.email).toBe('test@example.com');
-
-    const otp = await otpRecord(response.body.data.userId);
-    expect(otp).toMatchObject({ attempts: 0 });
-    expect(otp?.codeHash).toHaveLength(64);
+    expect(response.body.data).toMatchObject({
+      registrationId,
+      email: 'test@example.com',
+      verificationRequired: true,
+      verificationEmailSent: true
+    });
+    expect(registrationId).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(await pendingRecord(registrationId)).toMatchObject({ email: 'test@example.com', attempts: 0 });
+    const pending = await pendingRecord(registrationId);
+    expect(pending?.codeHash).toHaveLength(64);
+    expect(pending?.codeHash).not.toBe(code);
+    expect(await bcrypt.compare(validPassword, pending?.passwordHash ?? '')).toBe(true);
+    expect(await db.select().from(users).where(eq(users.email, 'test@example.com'))).toHaveLength(0);
+    expect(otpMatches(code, pending?.codeHash ?? '')).toBe(true);
     expect(sendOtpMock).toHaveBeenCalledWith('test@example.com', expect.stringMatching(/^\d{6}$/));
   });
 
@@ -48,25 +66,13 @@ describe('authentication', () => {
       .expect(201);
 
     expect(response.body.data).toMatchObject({ verificationRequired: true, verificationEmailSent: false });
-    expect(await otpRecord(response.body.data.userId)).not.toBeNull();
+    expect(await pendingRecord(response.body.data.registrationId)).not.toBeNull();
+    expect(await db.select().from(users).where(eq(users.email, 'mail-failure@example.com'))).toHaveLength(0);
     expect(sendOtpMock).toHaveBeenCalledOnce();
   });
 
-  it('reports resend delivery failures instead of claiming the OTP was sent', async () => {
-    const user = await createUser({ email: 'resend-mail-failure@example.com', verified: false });
-    sendOtpMock.mockRejectedValueOnce(new Error('mail provider unavailable'));
-
-    const response = await request(app)
-      .post('/api/v1/auth/resend-verification')
-      .send({ email: user.email })
-      .expect(502);
-
-    expect(response.body.error.code).toBe('EMAIL_DELIVERY_FAILED');
-    expect(response.body.error.requestId).toBeTruthy();
-  });
-
   it('rejects duplicate registration for a verified account', async () => {
-    await createUser({ email: 'exists@example.com', verified: true });
+    await createUser({ email: 'exists@example.com' });
 
     const response = await request(app)
       .post('/api/v1/auth/register')
@@ -74,182 +80,168 @@ describe('authentication', () => {
       .expect(409);
 
     expect(response.body.error.code).toBe('EMAIL_EXISTS');
-    expect(response.body.error.message).toContain('already exists');
   });
 
-  it('rejects duplicate registration for an unverified account', async () => {
-    await createUser({ email: 'pending@example.com', verified: false });
+  it('allows separate pending attempts for the same email and promotes only the verified attempt', async () => {
+    const attacker = await beginRegistration('shared@example.com', 'AttackerPass123!');
+    const victim = await beginRegistration('shared@example.com', 'VictimPass123!');
+    const attackerCode = '123456';
+    const victimCode = '654321';
+    await db.update(unverifiedUsers).set({ codeHash: hashOtp(attackerCode) })
+      .where(eq(unverifiedUsers.registrationId, attacker.registrationId));
+    await db.update(unverifiedUsers).set({ codeHash: hashOtp(victimCode) })
+      .where(eq(unverifiedUsers.registrationId, victim.registrationId));
 
-    const response = await request(app)
-      .post('/api/v1/auth/register')
-      .send({ email: 'pending@example.com', password: validPassword, confirmPassword: validPassword })
-      .expect(409);
+    expect(attacker.registrationId).not.toBe(victim.registrationId);
+    expect(await db.select({ id: unverifiedUsers.registrationId }).from(unverifiedUsers)
+      .where(eq(unverifiedUsers.email, 'shared@example.com'))).toHaveLength(2);
 
-    expect(response.body.error.code).toBe('EMAIL_EXISTS');
-    expect(response.body.error.message).toContain('Verify the email');
-  });
+    await request(app).post('/api/v1/auth/verify-email')
+      .send({ registrationId: attacker.registrationId, otp: victimCode })
+      .expect(400);
+    expect((await pendingRecord(attacker.registrationId))?.attempts).toBe(1);
+    expect((await pendingRecord(victim.registrationId))?.attempts).toBe(0);
 
-  it('verifies a valid OTP and removes the OTP record', async () => {
-    const user = await createUser({ email: 'verify@example.com', verified: false });
-    const code = '123456';
-    await db.insert(emailOtps).values({
-      userId: user.id,
-      codeHash: hashOtp(code),
-      expiresAt: new Date(Date.now() + 600_000),
-      attempts: 0,
-      sentAt: new Date()
-    });
-
-    const response = await request(app)
+    const verified = await request(app)
       .post('/api/v1/auth/verify-email')
-      .send({ email: user.email, otp: code })
+      .send({ registrationId: victim.registrationId, otp: victimCode })
       .expect(200);
 
-    expect(response.body.data.verified).toBe(true);
-    expect(await otpRecord(user.id)).toBeNull();
+    expect(verified.body.data.accessToken).toEqual(expect.any(String));
+    const [user] = await db.select({ id: users.id, passwordHash: users.passwordHash, emailVerifiedAt: users.emailVerifiedAt })
+      .from(users).where(eq(users.email, 'shared@example.com')).limit(1);
+    expect(user?.emailVerifiedAt).toBeTruthy();
+    expect(await bcrypt.compare('VictimPass123!', user?.passwordHash ?? '')).toBe(true);
+    expect(await bcrypt.compare('AttackerPass123!', user?.passwordHash ?? '')).toBe(false);
+    expect(await db.select().from(unverifiedUsers).where(eq(unverifiedUsers.email, 'shared@example.com'))).toHaveLength(0);
 
-    const [updated] = await db.select({ emailVerifiedAt: users.emailVerifiedAt }).from(users).where(eq(users.id, user.id)).limit(1);
-    expect(updated?.emailVerifiedAt).toBeTruthy();
-  });
-
-  it('accepts repeated verification for an already verified account', async () => {
-    const user = await createUser({ email: 'verified@example.com', verified: true });
-
-    const response = await request(app)
-      .post('/api/v1/auth/verify-email')
-      .send({ email: user.email, otp: '123456' })
+    await request(app).post('/api/v1/auth/login')
+      .send({ email: 'shared@example.com', password: 'VictimPass123!' })
       .expect(200);
-
-    expect(response.body.data).toEqual({ verified: true });
+    await request(app).post('/api/v1/auth/login')
+      .send({ email: 'shared@example.com', password: 'AttackerPass123!' })
+      .expect(401);
+    await request(app)
+      .post('/api/v1/auth/verify-email')
+      .send({ registrationId: attacker.registrationId, otp: attackerCode })
+      .expect(400);
   });
 
-  it('rejects an unknown verification email', async () => {
-    const response = await request(app)
-      .post('/api/v1/auth/verify-email')
-      .send({ email: 'missing@example.com', otp: '123456' })
+  it('serializes concurrent verification attempts for the same email', async () => {
+    const first = await beginRegistration('race@example.com', 'FirstChosenPass123!');
+    const second = await beginRegistration('race@example.com', 'SecondChosenPass123!');
+
+    const responses = await Promise.all([
+      request(app).post('/api/v1/auth/verify-email').send({ registrationId: first.registrationId, otp: first.code }),
+      request(app).post('/api/v1/auth/verify-email').send({ registrationId: second.registrationId, otp: second.code })
+    ]);
+
+    expect(responses.map((response) => response.status).sort((a, b) => a - b)).toEqual([200, 400]);
+    expect(await db.select().from(users).where(eq(users.email, 'race@example.com'))).toHaveLength(1);
+    expect(await db.select().from(unverifiedUsers).where(eq(unverifiedUsers.email, 'race@example.com'))).toHaveLength(0);
+  });
+
+  it('rejects an unknown registration identifier and consumed registrations', async () => {
+    await request(app).post('/api/v1/auth/verify-email')
+      .send({ registrationId: '00000000-0000-4000-8000-000000000000', otp: '123456' })
       .expect(400);
 
-    expect(response.body.error.code).toBe('INVALID_OTP');
-  });
-
-  it('rejects an expired OTP without incrementing attempts', async () => {
-    const user = await createUser({ email: 'expired@example.com', verified: false });
-    await db.insert(emailOtps).values({
-      userId: user.id,
-      codeHash: hashOtp('123456'),
-      expiresAt: new Date(Date.now() - 1_000),
-      attempts: 2,
-      sentAt: new Date(Date.now() - 60_000)
-    });
-
-    const response = await request(app)
-      .post('/api/v1/auth/verify-email')
-      .send({ email: user.email, otp: '123456' })
+    const registration = await beginRegistration('replay@example.com');
+    await request(app).post('/api/v1/auth/verify-email')
+      .send({ registrationId: registration.registrationId, otp: registration.code })
+      .expect(200);
+    const replay = await request(app).post('/api/v1/auth/verify-email')
+      .send({ registrationId: registration.registrationId, otp: registration.code })
       .expect(400);
-
-    expect(response.body.error.code).toBe('INVALID_OTP');
-    expect((await otpRecord(user.id))?.attempts).toBe(2);
+    expect(replay.body.error.code).toBe('INVALID_OTP');
   });
 
-  it('increments wrong OTP attempts and blocks at the maximum', async () => {
-    const user = await createUser({ email: 'otp@example.com', verified: false });
-    await db.insert(emailOtps).values({
-      userId: user.id,
-      codeHash: hashOtp(generateOtp()),
-      expiresAt: new Date(Date.now() + 600_000),
-      attempts: 0,
-      sentAt: new Date()
-    });
-
-    for (let attempt = 1; attempt <= 5; attempt += 1) {
-      const response = await request(app)
-        .post('/api/v1/auth/verify-email')
-        .send({ email: user.email, otp: '000000' })
+  it('enforces the failed-attempt limit for each registration', async () => {
+    const registration = await beginRegistration('wrong-otp@example.com');
+    const wrongOtp = registration.code === '000000' ? '000001' : '000000';
+    for (let attempt = 1; attempt <= env.OTP_MAX_ATTEMPTS; attempt += 1) {
+      const response = await request(app).post('/api/v1/auth/verify-email')
+        .send({ registrationId: registration.registrationId, otp: wrongOtp })
         .expect(400);
       expect(response.body.error.code).toBe('INVALID_OTP');
     }
-
-    expect((await otpRecord(user.id))?.attempts).toBe(5);
-
-    const blocked = await request(app)
-      .post('/api/v1/auth/verify-email')
-      .send({ email: user.email, otp: '123456' })
+    expect((await pendingRecord(registration.registrationId))?.attempts).toBe(env.OTP_MAX_ATTEMPTS);
+    await request(app).post('/api/v1/auth/verify-email')
+      .send({ registrationId: registration.registrationId, otp: registration.code })
       .expect(400);
-    expect(blocked.body.error.code).toBe('INVALID_OTP');
+    expect(await db.select().from(users).where(eq(users.email, 'wrong-otp@example.com'))).toHaveLength(0);
   });
 
-  it('does not lose OTP attempt increments under concurrent incorrect submissions', async () => {
-    const user = await createUser({ email: 'otp-concurrent@example.com', verified: false });
-    const startingAttempts = Math.max(0, env.OTP_MAX_ATTEMPTS - 2);
-    await db.insert(emailOtps).values({
-      userId: user.id,
-      codeHash: hashOtp('123456'),
-      expiresAt: new Date(Date.now() + 600_000),
-      attempts: startingAttempts,
-      sentAt: new Date()
-    });
+  it('rejects OTPs after their ten-minute expiry', async () => {
+    const registration = await beginRegistration('expired-otp@example.com');
+    await db.update(unverifiedUsers).set({ expiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(unverifiedUsers.registrationId, registration.registrationId));
 
-    const responses = await Promise.all(Array.from({ length: 6 }, () => request(app)
-      .post('/api/v1/auth/verify-email')
-      .send({ email: user.email, otp: '000000' })));
-
-    expect(responses.every((response) => response.status === 400)).toBe(true);
-    expect((await otpRecord(user.id))?.attempts).toBe(env.OTP_MAX_ATTEMPTS);
+    const response = await request(app).post('/api/v1/auth/verify-email')
+      .send({ registrationId: registration.registrationId, otp: registration.code })
+      .expect(400);
+    expect(response.body.error.code).toBe('INVALID_OTP');
+    expect(await pendingRecord(registration.registrationId)).not.toBeNull();
   });
 
-  it('resends verification when cooldown has elapsed or no OTP exists', async () => {
-    const user = await createUser({ email: 'resend@example.com', verified: false });
+  it('rejects and consumes registrations older than 24 hours', async () => {
+    const registration = await beginRegistration('expired-registration@example.com');
+    await db.update(unverifiedUsers).set({ createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000 - 1) })
+      .where(eq(unverifiedUsers.registrationId, registration.registrationId));
 
-    const response = await request(app)
-      .post('/api/v1/auth/resend-verification')
-      .send({ email: user.email })
+    const response = await request(app).post('/api/v1/auth/verify-email')
+      .send({ registrationId: registration.registrationId, otp: registration.code })
+      .expect(400);
+    expect(response.body.error.code).toBe('REGISTRATION_EXPIRED');
+    expect(await pendingRecord(registration.registrationId)).toBeNull();
+  });
+
+  it('resends by registration ID and resets only that attempt OTP state', async () => {
+    const registration = await beginRegistration('resend@example.com');
+    await db.update(unverifiedUsers).set({ sentAt: new Date(Date.now() - env.OTP_RESEND_SECONDS * 1000 - 1000), attempts: 2 })
+      .where(eq(unverifiedUsers.registrationId, registration.registrationId));
+
+    const beforeResend = await pendingRecord(registration.registrationId);
+    const createdAt = beforeResend?.createdAt;
+    const originalCodeHash = beforeResend?.codeHash;
+    const response = await request(app).post('/api/v1/auth/resend-verification')
+      .send({ registrationId: registration.registrationId })
       .expect(200);
 
     expect(response.body.data).toEqual({ sent: true });
-    expect(await otpRecord(user.id)).toMatchObject({ attempts: 0 });
+    const pending = await pendingRecord(registration.registrationId);
+    expect(pending?.createdAt.getTime()).toBe(createdAt?.getTime());
+    expect(pending?.attempts).toBe(0);
+    expect(pending?.codeHash).not.toBe(originalCodeHash);
+    expect(otpMatches(sendOtpMock.mock.calls.at(-1)?.[1] as string, pending?.codeHash ?? '')).toBe(true);
   });
 
   it('blocks resend during cooldown', async () => {
-    const user = await createUser({ email: 'cooldown@example.com', verified: false });
-    await db.insert(emailOtps).values({
-      userId: user.id,
-      codeHash: hashOtp('123456'),
-      expiresAt: new Date(Date.now() + 600_000),
-      attempts: 0,
-      sentAt: new Date()
-    });
-
-    const response = await request(app)
-      .post('/api/v1/auth/resend-verification')
-      .send({ email: user.email })
+    const registration = await beginRegistration('cooldown@example.com');
+    const response = await request(app).post('/api/v1/auth/resend-verification')
+      .send({ registrationId: registration.registrationId })
       .expect(429);
 
     expect(response.body.error.code).toBe('OTP_COOLDOWN');
     expect(response.body.error.details.retryAfterSeconds).toBeGreaterThan(0);
   });
 
-  it('rejects resend for a missing email', async () => {
-    const response = await request(app)
-      .post('/api/v1/auth/resend-verification')
-      .send({ email: 'missing@example.com' })
-      .expect(404);
+  it('reports resend delivery failures', async () => {
+    const registration = await beginRegistration('resend-failure@example.com');
+    await db.update(unverifiedUsers).set({ sentAt: new Date(Date.now() - env.OTP_RESEND_SECONDS * 1000 - 1000) })
+      .where(eq(unverifiedUsers.registrationId, registration.registrationId));
+    sendOtpMock.mockRejectedValueOnce(new Error('mail provider unavailable'));
 
-    expect(response.body.error.code).toBe('EMAIL_NOT_FOUND');
-  });
+    const response = await request(app).post('/api/v1/auth/resend-verification')
+      .send({ registrationId: registration.registrationId })
+      .expect(502);
 
-  it('returns verified for resend on an already verified account', async () => {
-    const user = await createUser({ email: 'already@example.com', verified: true });
-
-    const response = await request(app)
-      .post('/api/v1/auth/resend-verification')
-      .send({ email: user.email })
-      .expect(200);
-
-    expect(response.body.data).toEqual({ verified: true });
+    expect(response.body.error.code).toBe('EMAIL_DELIVERY_FAILED');
+    expect(response.body.error.requestId).toBeTruthy();
   });
 
   it('rejects invalid credentials', async () => {
-    await createUser({ email: 'login@example.com', verified: true });
+    await createUser({ email: 'login@example.com' });
 
     const response = await request(app)
       .post('/api/v1/auth/login')
@@ -259,19 +251,8 @@ describe('authentication', () => {
     expect(response.body.error.code).toBe('INVALID_CREDENTIALS');
   });
 
-  it('rejects login until email is verified', async () => {
-    await createUser({ email: 'unverified-login@example.com', verified: false });
-
-    const response = await request(app)
-      .post('/api/v1/auth/login')
-      .send({ email: 'unverified-login@example.com', password: validPassword })
-      .expect(403);
-
-    expect(response.body.error.code).toBe('EMAIL_NOT_VERIFIED');
-  });
-
   it('logs in with profile and selected tasks and reports setup complete', async () => {
-    const user = await createUser({ email: 'complete@example.com', verified: true });
+    const user = await createUser({ email: 'complete@example.com' });
     await createProfile(user.id);
     const ids = await Promise.all([taskId('AC service visit'), taskId('Doctor appointment')]);
     await selectTasks(user.id, ids);
@@ -300,7 +281,7 @@ describe('authentication', () => {
   });
 
   it('stores only a hash of the refresh token', async () => {
-    const user = await createUser({ email: 'token-hash@example.com', verified: true });
+    const user = await createUser({ email: 'token-hash@example.com' });
     const response = await request(app)
       .post('/api/v1/auth/login')
       .send({ email: user.email, password: validPassword })
@@ -316,7 +297,7 @@ describe('authentication', () => {
   });
 
   it('rotates refresh tokens and revokes the family when an old token is reused', async () => {
-    const user = await createUser({ email: 'token-rotation@example.com', verified: true });
+    const user = await createUser({ email: 'token-rotation@example.com' });
     const loginResponse = await request(app)
       .post('/api/v1/auth/login')
       .send({ email: user.email, password: validPassword })
@@ -360,7 +341,7 @@ describe('authentication', () => {
   });
 
   it('revokes the refresh-token family on logout', async () => {
-    const user = await createUser({ email: 'token-logout@example.com', verified: true });
+    const user = await createUser({ email: 'token-logout@example.com' });
     const loginResponse = await request(app)
       .post('/api/v1/auth/login')
       .send({ email: user.email, password: validPassword })
@@ -379,7 +360,7 @@ describe('authentication', () => {
   });
 
   it('rejects expired refresh tokens and revokes their session family', async () => {
-    const user = await createUser({ email: 'token-expired@example.com', verified: true });
+    const user = await createUser({ email: 'token-expired@example.com' });
     const loginResponse = await request(app)
       .post('/api/v1/auth/login')
       .send({ email: user.email, password: validPassword })
@@ -408,7 +389,7 @@ describe('authentication', () => {
   });
 
   it('logs in without profile or tasks and reports incomplete setup', async () => {
-    const user = await createUser({ email: 'incomplete@example.com', verified: true });
+    const user = await createUser({ email: 'incomplete@example.com' });
 
     const response = await request(app)
       .post('/api/v1/auth/login')
@@ -421,7 +402,7 @@ describe('authentication', () => {
   });
 
   it('returns selected tasks when logging in with a valid session', async () => {
-    const user = await createUser({ email: 'session@example.com', verified: true });
+    const user = await createUser({ email: 'session@example.com' });
     const id = await taskId('AC service visit');
     await selectTasks(user.id, [id]);
 

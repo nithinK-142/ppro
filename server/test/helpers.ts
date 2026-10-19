@@ -3,28 +3,27 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { eq } from 'drizzle-orm';
 import { db } from '../src/db/index.ts';
-import { emailOtps, profiles, tasks, userTasks, users } from '../src/db/schema/index.ts';
+import { profiles, tasks, unverifiedUsers, userTasks, users } from '../src/db/schema/index.ts';
 import env from '../src/config/env.ts';
 
 type UserOptions = {
   email: string;
   password?: string;
-  verified?: boolean;
 };
 
 async function resetUserData() {
+  await db.delete(unverifiedUsers);
   await db.delete(userTasks);
   await db.delete(profiles);
-  await db.delete(emailOtps);
   await db.delete(users);
 }
 
-async function createUser({ email, password = 'StrongPass123!', verified = true }: UserOptions) {
+async function createUser({ email, password = 'StrongPass123!' }: UserOptions) {
   const passwordHash = await bcrypt.hash(password, 4);
   const [user] = await db.insert(users).values({
     email,
     passwordHash,
-    emailVerifiedAt: verified ? new Date() : null
+    emailVerifiedAt: new Date()
   }).returning({ id: users.id, email: users.email, emailVerifiedAt: users.emailVerifiedAt });
   if (!user) throw new Error('Failed to create test user');
   return { ...user, password };
@@ -62,18 +61,8 @@ function authHeader(userId: number) {
   return { Authorization: `Bearer ${authToken(userId)}` };
 }
 
-async function otpRecord(userId: number) {
-  const [record] = await db.select({
-    codeHash: emailOtps.codeHash,
-    expiresAt: emailOtps.expiresAt,
-    attempts: emailOtps.attempts,
-    sentAt: emailOtps.sentAt
-  }).from(emailOtps).where(eq(emailOtps.userId, userId)).limit(1);
-  return record ?? null;
-}
-
 async function verifiedUser(email = `user-${Date.now()}-${Math.random().toString(16).slice(2)}@example.com`) {
-  return createUser({ email, verified: true });
+  return createUser({ email });
 }
 
 beforeEach(async () => {
@@ -81,4 +70,4 @@ beforeEach(async () => {
 });
 
 
-export { resetUserData, createUser, createProfile, taskId, selectTasks, authToken, authHeader, otpRecord, verifiedUser };
+export { resetUserData, createUser, createProfile, taskId, selectTasks, authToken, authHeader, verifiedUser };
