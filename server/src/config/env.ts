@@ -32,6 +32,7 @@ const envSchema = z.object({
   CLIENT_ORIGIN: z.string().min(1).default('http://localhost:8081'),
   TRUST_PROXY: z.string().optional().default('false'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  OBSERVABILITY_ENABLED: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
   METRICS_TOKEN: z.preprocess(
     (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
     z.string().min(32).optional()

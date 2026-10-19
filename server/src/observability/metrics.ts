@@ -18,7 +18,7 @@ const databaseErrors = new Map<string, { labels: Labels; value: number }>();
 const httpDurations = new Map<string, HistogramSeries>();
 const databaseDurations = new Map<string, HistogramSeries>();
 const eventLoopDelay = monitorEventLoopDelay({ resolution: 20 });
-eventLoopDelay.enable();
+if (env.OBSERVABILITY_ENABLED) eventLoopDelay.enable();
 let requestsInFlight = 0;
 
 function escapeLabel(value: string): string {

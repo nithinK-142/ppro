@@ -64,7 +64,7 @@ function instrumentQueries(client: PoolClient): void {
   };
 }
 
-pool.on('connect', instrumentQueries);
+if (env.OBSERVABILITY_ENABLED) pool.on('connect', instrumentQueries);
 
 const db = drizzle(pool);
 let initializePromise: Promise<void> | undefined;

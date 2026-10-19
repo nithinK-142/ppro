@@ -25,7 +25,7 @@ type SpanContext = { traceId: string; spanId: string };
 
 const activeSpan = new AsyncLocalStorage<SpanContext>();
 const pendingSpans: Span[] = [];
-const endpoint = env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT;
+const endpoint = env.OBSERVABILITY_ENABLED ? env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT : undefined;
 let flushInProgress: Promise<void> | undefined;
 
 function newId(bytes: number): string {

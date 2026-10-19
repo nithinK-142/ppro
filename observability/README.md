@@ -12,12 +12,12 @@ Prometheus retains 15 days or 5 GB of metrics. Tempo retains trace blocks for 48
 
 1. Copy `.env.example` to `.env`.
 2. Set `METRICS_TOKEN` and `GRAFANA_ADMIN_PASSWORD`. Use the same metrics token in `server/.env` and `observability/.env`.
-3. Set `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://127.0.0.1:4318/v1/traces` in `server/.env`.
-4. Start the API, then run:
+3. Set `OBSERVABILITY_ENABLED=true` and `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://127.0.0.1:4318/v1/traces` in `server/.env`.
+4. Start the monitoring stack separately, then start the API:
 
    ```sh
    cd observability
-   docker compose --env-file .env -f docker-compose.yml up -d
+   docker compose up -d
    ```
 
 - Grafana: <http://localhost:3000>
@@ -25,11 +25,7 @@ Prometheus retains 15 days or 5 GB of metrics. Tempo retains trace blocks for 48
 - Dashboard: **PadosiPro → PadosiPro API Overview**
 - Traces: Grafana → **Explore → Tempo → Search**
 
-Stop monitoring with:
-
-```sh
-docker compose --env-file .env -f docker-compose.yml down
-```
+To disable application telemetry, set `OBSERVABILITY_ENABLED=false` in `server/.env` and restart the API. Set it back to `true` to resume collection. The monitoring containers keep running until stopped separately with `docker compose down` from this directory. Do not use `docker compose down -v`; that would delete stored metrics, traces, and Grafana data.
 
 ### If the API runs on the same server as monitoring
 
