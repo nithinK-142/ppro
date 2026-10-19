@@ -52,13 +52,13 @@ if (existsSync(appEnvPath)) {
 
 beforeAll(async () => {
   const { initializeDatabase, db } = await import('../src/db/index.ts');
-  const { tasks, userTasks, profiles, emailOtps, users } = await import('../src/db/schema/index.ts');
+  const { tasks, userTasks, profiles, unverifiedUsers, users } = await import('../src/db/schema/index.ts');
   const { seedTasks } = await import('../src/db/seed.ts');
 
   await initializeDatabase();
+  await db.delete(unverifiedUsers);
   await db.delete(userTasks);
   await db.delete(profiles);
-  await db.delete(emailOtps);
   await db.delete(users);
   await db.delete(tasks);
   await seedTasks();

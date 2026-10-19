@@ -3,7 +3,7 @@ import type { TaskRow } from '../db/schema/index.ts';
 export interface UserSummary {
   id: number;
   email: string;
-  emailVerifiedAt: string | null;
+  emailVerifiedAt: string;
 }
 
 export interface ProfileData {
@@ -37,14 +37,10 @@ export interface LogoutData {
 
 
 export interface RegisterData {
-  userId: number;
+  registrationId: string;
   email: string;
   verificationRequired: true;
   verificationEmailSent: boolean;
-}
-
-export interface VerificationData {
-  verified: true;
 }
 
 export interface ResendData {

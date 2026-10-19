@@ -13,9 +13,11 @@ const registerSchema = z.object({
 });
 
 const verifySchema = z.object({
-  email,
+  registrationId: z.string().uuid(),
   otp: z.string().regex(/^\d{6}$/, { error: 'OTP must be 6 digits' })
 });
+
+const resendSchema = z.object({ registrationId: z.string().uuid() });
 
 const loginSchema = z.object({ email, password });
 const refreshTokenSchema = z.object({
@@ -23,4 +25,4 @@ const refreshTokenSchema = z.object({
   refreshAttemptId: z.string().min(16).max(100).regex(/^[a-zA-Z0-9_-]+$/).optional()
 });
 
-export { registerSchema, verifySchema, loginSchema, refreshTokenSchema };
+export { registerSchema, verifySchema, resendSchema, loginSchema, refreshTokenSchema };

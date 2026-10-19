@@ -25,15 +25,15 @@ describe('request validation', () => {
 
   it('rejects malformed OTP values', async () => {
     const response = await request(app).post('/api/v1/auth/verify-email').send({
-      email: 'test@example.com',
+      registrationId: '00000000-0000-4000-8000-000000000000',
       otp: '12ab'
     }).expect(400);
 
     expect(response.body.error.code).toBe('VALIDATION_ERROR');
   });
 
-  it('rejects an empty resend email', async () => {
-    const response = await request(app).post('/api/v1/auth/resend-verification').send({ email: '' }).expect(400);
+  it('rejects an invalid registration identifier for resend', async () => {
+    const response = await request(app).post('/api/v1/auth/resend-verification').send({ registrationId: 'not-a-uuid' }).expect(400);
     expect(response.body.error.code).toBe('VALIDATION_ERROR');
   });
 
