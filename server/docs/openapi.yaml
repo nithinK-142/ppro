@@ -51,7 +51,7 @@ paths:
             schema: { $ref: '#/components/schemas/RegisterRequest' }
       responses:
         '201':
-          description: Account created. The response reports whether the verification email was sent.
+          description: Pending registration created. The response reports whether the verification email was sent.
           content:
             application/json:
               schema:
@@ -60,9 +60,9 @@ paths:
                 properties:
                   data:
                     type: object
-                    required: [userId, email, verificationRequired, verificationEmailSent]
+                    required: [registrationId, email, verificationRequired, verificationEmailSent]
                     properties:
-                      userId: { type: integer }
+                      registrationId: { type: string, format: uuid }
                       email: { type: string, format: email }
                       verificationRequired: { type: boolean, const: true }
                       verificationEmailSent: { type: boolean }
@@ -79,10 +79,10 @@ paths:
             schema: { $ref: '#/components/schemas/VerifyRequest' }
       responses:
         '200':
-          description: Email verified.
+          description: Email verified. Returns tokens and current session state.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/VerificationResponse' }
+              schema: { $ref: '#/components/schemas/LoginResponse' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '429': { $ref: '#/components/responses/RateLimited' }
   /api/v1/auth/resend-verification:
@@ -94,17 +94,16 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email]
+              required: [registrationId]
               properties:
-                email: { type: string, format: email }
+                registrationId: { type: string, format: uuid }
       responses:
         '200':
-          description: Verification code sent, or email was already verified.
+          description: Verification code sent for this pending registration.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ResendResponse' }
         '400': { $ref: '#/components/responses/BadRequest' }
-        '404': { $ref: '#/components/responses/NotFound' }
         '502':
           description: Mailjet rejected the verification email or the send request failed.
           content:
@@ -275,9 +274,9 @@ components:
         confirmPassword: { type: string, minLength: 8, maxLength: 72 }
     VerifyRequest:
       type: object
-      required: [email, otp]
+      required: [registrationId, otp]
       properties:
-        email: { type: string, format: email }
+        registrationId: { type: string, format: uuid }
         otp: { type: string, pattern: '^[0-9]{6}$' }
     ProfileRequest:
       type: object
@@ -287,29 +286,15 @@ components:
         mobile: { type: string, pattern: '^\+91[0-9]{10}$' }
         address: { type: string, minLength: 5, maxLength: 300 }
         businessName: { type: string, maxLength: 120 }
-    VerificationResponse:
-      type: object
-      required: [data]
-      properties:
-        data:
-          type: object
-          required: [verified]
-          properties:
-            verified: { type: boolean, const: true }
     ResendResponse:
       type: object
       required: [data]
       properties:
         data:
-          oneOf:
-            - type: object
-              required: [sent]
-              properties:
-                sent: { type: boolean, const: true }
-            - type: object
-              required: [verified]
-              properties:
-                verified: { type: boolean, const: true }
+          type: object
+          required: [sent]
+          properties:
+            sent: { type: boolean, const: true }
     TokenResponse:
       type: object
       required: [data]
@@ -366,10 +351,7 @@ components:
       properties:
         id: { type: integer }
         email: { type: string, format: email }
-        emailVerifiedAt:
-          oneOf:
-            - { type: string, format: date-time }
-            - { type: 'null' }
+        emailVerifiedAt: { type: string, format: date-time }
     Profile:
       type: object
       required: [name, mobile, address, businessName, updated_at]
